@@ -4,7 +4,7 @@ import { isAdmin, unauthorized } from "@/lib/admin-check";
 
 export async function GET(req: NextRequest) {
   if (!isAdmin(req)) return unauthorized();
-  const { data, error } = await supabaseAdmin.from("menu_items").select("*").order("sort_order");
+  const { data, error } = await supabaseAdmin.from("menu_items").select("*").order("position").order("sort_order");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }

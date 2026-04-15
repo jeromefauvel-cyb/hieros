@@ -40,6 +40,8 @@ interface MenuItem {
   code: string;
   label: string;
   sort_order: number;
+  parent_id: string | null;
+  position: number;
 }
 
 interface SubmenuItem {
@@ -47,6 +49,8 @@ interface SubmenuItem {
   code: string;
   label: string;
   ref: string;
+  parent_id: string | null;
+  position: number;
 }
 
 interface ContentSection {
@@ -58,35 +62,55 @@ interface ContentSection {
 
 /* ─── Fallback data (used when Supabase is not configured) ─── */
 const fallbackMenuItems: MenuItem[] = [
-  { id: "1", code: "BTV", label: "BTV", sort_order: 1 },
-  { id: "2", code: "G7", label: "G7", sort_order: 2 },
-  { id: "3", code: "CRE", label: "CRE", sort_order: 3 },
-  { id: "4", code: "RLY", label: "RLY", sort_order: 4 },
-  { id: "5", code: "$", label: "$", sort_order: 5 },
-  { id: "6", code: "€", label: "€", sort_order: 6 },
-  { id: "7", code: "£", label: "£", sort_order: 7 },
-  { id: "8", code: "¥", label: "¥", sort_order: 8 },
-  { id: "9", code: "SUR", label: "SUR", sort_order: 9 },
-  { id: "10", code: "CCM", label: "CCM", sort_order: 10 },
-  { id: "11", code: "JVH", label: "JVH", sort_order: 11 },
-  { id: "12", code: "PIZ", label: "PIZ", sort_order: 12 },
-  { id: "13", code: "PYP", label: "PYP", sort_order: 13 },
+  { id: "1", code: "BTV", label: "BTV", sort_order: 1, parent_id: null, position: 1 },
+  { id: "2", code: "G7", label: "G7", sort_order: 2, parent_id: null, position: 2 },
+  { id: "3", code: "CRE", label: "CRE", sort_order: 3, parent_id: null, position: 3 },
+  { id: "4", code: "RLY", label: "RLY", sort_order: 4, parent_id: null, position: 4 },
+  { id: "5", code: "$", label: "$", sort_order: 5, parent_id: null, position: 5 },
+  { id: "6", code: "€", label: "€", sort_order: 6, parent_id: null, position: 6 },
+  { id: "7", code: "£", label: "£", sort_order: 7, parent_id: null, position: 7 },
+  { id: "8", code: "¥", label: "¥", sort_order: 8, parent_id: null, position: 8 },
+  { id: "9", code: "SUR", label: "SUR", sort_order: 9, parent_id: null, position: 9 },
+  { id: "10", code: "CCM", label: "CCM", sort_order: 10, parent_id: null, position: 10 },
+  { id: "11", code: "JVH", label: "JVH", sort_order: 11, parent_id: null, position: 11 },
+  { id: "12", code: "PIZ", label: "PIZ", sort_order: 12, parent_id: null, position: 12 },
+  { id: "13", code: "PYP", label: "PYP", sort_order: 13, parent_id: null, position: 13 },
 ];
 
 const fallbackSubmenuItems: SubmenuItem[] = [
-  { id: "1", code: "ZE-NE13", label: "ZE-NE13", ref: "" },
-  { id: "2", code: "FLAMOTS", label: "FLAMOTS", ref: "LM-M665/A" },
-  { id: "3", code: "TIMEOUT", label: "TIMEOUT", ref: "IS-R31b/C" },
-  { id: "4", code: "DGL_2115", label: "DGL_2115", ref: "" },
-  { id: "5", code: "JPK_GVR", label: "JPK_GVR", ref: "LO-c324/C" },
-  { id: "6", code: "REDUNO_WP", label: "REDUNO_WP", ref: "LN-5523" },
-  { id: "7", code: "UNICODE", label: "UNICODE", ref: "" },
-  { id: "8", code: "MATRIX", label: "MATRIX", ref: "N-RE90" },
-  { id: "9", code: "WB_READY", label: "WB_READY", ref: "FE-/094" },
-  { id: "10", code: "_MCN", label: "_MCN", ref: "" },
-  { id: "11", code: "MATT_THQ", label: "MATT_THQ", ref: "CB-S4C5" },
-  { id: "12", code: "HANDLER", label: "HANDLER", ref: "RQ-28C/3" },
+  { id: "1", code: "ZE-NE13", label: "ZE-NE13", ref: "", parent_id: null, position: 1 },
+  { id: "2", code: "FLAMOTS", label: "FLAMOTS", ref: "LM-M665/A", parent_id: null, position: 2 },
+  { id: "3", code: "TIMEOUT", label: "TIMEOUT", ref: "IS-R31b/C", parent_id: null, position: 3 },
+  { id: "4", code: "DGL_2115", label: "DGL_2115", ref: "", parent_id: null, position: 4 },
+  { id: "5", code: "JPK_GVR", label: "JPK_GVR", ref: "LO-c324/C", parent_id: null, position: 5 },
+  { id: "6", code: "REDUNO_WP", label: "REDUNO_WP", ref: "LN-5523", parent_id: null, position: 6 },
+  { id: "7", code: "UNICODE", label: "UNICODE", ref: "", parent_id: null, position: 7 },
+  { id: "8", code: "MATRIX", label: "MATRIX", ref: "N-RE90", parent_id: null, position: 8 },
+  { id: "9", code: "WB_READY", label: "WB_READY", ref: "FE-/094", parent_id: null, position: 9 },
+  { id: "10", code: "_MCN", label: "_MCN", ref: "", parent_id: null, position: 10 },
+  { id: "11", code: "MATT_THQ", label: "MATT_THQ", ref: "CB-S4C5", parent_id: null, position: 11 },
+  { id: "12", code: "HANDLER", label: "HANDLER", ref: "RQ-28C/3", parent_id: null, position: 12 },
 ];
+
+/* ─── Tree helpers ─── */
+function buildMenuTree<T extends { id: string; parent_id: string | null; position: number }>(
+  items: T[]
+): Map<string | null, T[]> {
+  const map = new Map<string | null, T[]>();
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const key = item.parent_id || null;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(item);
+  }
+  // Sort each group by position
+  const keys = Array.from(map.keys());
+  for (let i = 0; i < keys.length; i++) {
+    const children = map.get(keys[i])!;
+    children.sort((a, b) => a.position - b.position);
+  }
+  return map;
+}
 
 /* ─── Decimal → DMS conversion ─── */
 function toDMS(decimal: number, isLat: boolean): string {
@@ -131,8 +155,8 @@ export default function Home() {
 
     const [annRes, menuRes, subRes, contentRes] = await Promise.all([
       supabase.from("announcements").select("*").eq("is_active", true).limit(1).single(),
-      supabase.from("menu_items").select("*").eq("is_active", true).order("sort_order"),
-      supabase.from("submenu_items").select("*").eq("is_active", true).order("sort_order"),
+      supabase.from("menu_items").select("*").eq("is_active", true).order("position").order("sort_order"),
+      supabase.from("submenu_items").select("*").eq("is_active", true).order("position").order("sort_order"),
       supabase.from("content_sections").select("*").eq("is_active", true).order("module_key"),
     ]);
 
@@ -330,13 +354,63 @@ export default function Home() {
   /* ─── Active content ─── */
   const activeContent = contentSections.find((c) => c.module_key === activeModule);
 
-  /* ─── Build grid from menu items (4 columns) ─── */
-  const gridButtons: string[][] = [];
-  for (let i = 0; i < menuItems.length; i += 4) {
-    const row = menuItems.slice(i, i + 4).map((m) => m.code);
-    while (row.length < 4) row.push("");
-    gridButtons.push(row);
-  }
+  /* ─── Build tree structures ─── */
+  const menuTree = buildMenuTree(menuItems);
+  const submenuTree = buildMenuTree(submenuItems);
+
+  /* ─── Render left menu tree recursively ─── */
+  const renderMenuNode = (item: MenuItem, depth: number): React.ReactNode => {
+    const children = menuTree.get(item.id) || [];
+    const isParent = children.length > 0;
+
+    return (
+      <div key={item.id} className={depth > 0 ? "space-y-1" : ""} style={{ marginLeft: depth > 0 ? `${depth * 10}px` : undefined }}>
+        <button
+          onClick={() => setActiveModule(item.code.toLowerCase())}
+          className={`inline-flex items-center gap-1 px-[8px] py-0.5 text-[10px] font-bold tracking-wider transition-colors border w-fit
+            ${activeModule === item.code.toLowerCase()
+              ? "bg-[#FF8C00]/10 border-[#FF8C00]/30 text-[#FF8C00]"
+              : "bg-[#00FF00]/10 border-[#00FF00]/30 text-[#00FF00] hover:bg-[#00FF00]/20"
+            }`}
+        >
+          {depth > 0 && (
+            <span className="text-[#00FF00]/20 text-[8px] shrink-0">{"\u2514"}</span>
+          )}
+          {isParent && (
+            <span className="text-[#00FF00]/40 text-[7px] shrink-0">{"\u25BC"}</span>
+          )}
+          {item.code}
+        </button>
+        {children.map((child) => renderMenuNode(child, depth + 1))}
+      </div>
+    );
+  };
+
+  const rootMenuItems = menuTree.get(null) || [];
+
+  /* ─── Render right submenu tree recursively ─── */
+  const renderSubmenuNode = (item: SubmenuItem, depth: number): React.ReactNode => {
+    const children = submenuTree.get(item.id) || [];
+    const isParent = children.length > 0;
+
+    return (
+      <div key={item.id}>
+        <div
+          className="flex justify-between py-0.5 hover:bg-[#00FF00]/5 px-1 cursor-default"
+          style={{ paddingLeft: `${depth * 8 + 4}px` }}
+        >
+          <span className={`text-[9px] ${isParent ? "text-[#00FF00]/90 font-bold" : "text-[#00FF00]/70"}`}>
+            {depth > 0 && <span className="text-[#00FF00]/20 mr-1">{"\u2514"}</span>}
+            {item.label}
+          </span>
+          <span className="text-[#00FF00]/40 text-[9px]">{item.ref}</span>
+        </div>
+        {children.map((child) => renderSubmenuNode(child, depth + 1))}
+      </div>
+    );
+  };
+
+  const rootSubmenuItems = submenuTree.get(null) || [];
 
   return (
     <div className="h-screen bg-black text-white font-terminal flex flex-col overflow-hidden select-none">
@@ -414,7 +488,7 @@ export default function Home() {
         {/* ──────── LEFT COLUMN ──────── */}
         <aside className="w-[200px] min-w-[200px] border-r border-[#00FF00]/20 flex flex-col">
           {/* Info blocs GMT / YMD / GPS / IPV */}
-          <div className="p-3 space-y-2 text-[11px]">
+          <div className="p-3 space-y-1 text-[11px]">
             <div className="flex items-center">
               <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[10px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
                 GMT
@@ -447,36 +521,16 @@ export default function Home() {
 
           <div className="border-t border-[#00FF00]/15 mx-3" />
 
-          {/* MENU INDIVIDUAL BUTTONS label */}
-          <div className="px-3 pb-3">
+          {/* MENU label */}
+          <div className="px-3 pb-0">
             <p className="text-[9px] text-white/50 leading-tight">
               MENU
-              <br />
-              INDIVIDUAL
-              <br />
-              BUTTONS
             </p>
           </div>
 
-          {/* Grid of small square buttons */}
-          <div className="px-3 flex-1">
-            {gridButtons.map((row, ri) => (
-              <div key={ri} className="flex gap-1 mb-1">
-                {row.map((label, ci) => (
-                  <button
-                    key={`${ri}-${ci}`}
-                    onClick={() => label && setActiveModule(label.toLowerCase())}
-                    className={`w-9 h-8 border text-[8px] flex items-center justify-center transition-colors ${
-                      label
-                        ? "border-[#00FF00]/30 text-white/70 hover:border-[#00FF00] hover:bg-[#00FF00]/10 cursor-pointer"
-                        : "border-transparent"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            ))}
+          {/* Hierarchical menu tree */}
+          <div className="p-3 flex-1 overflow-y-auto space-y-1">
+            {rootMenuItems.map((item) => renderMenuNode(item, 0))}
           </div>
         </aside>
 
@@ -542,11 +596,14 @@ export default function Home() {
                   </div>
                 </div>
               ) : activeContent ? (
-                <div className="text-center">
-                  <h2 className="font-marsek text-lg text-[#FF8C00] mb-4 tracking-widest">
-                    ▶ {activeContent.title}
+                <div className="w-full h-full overflow-y-auto p-6">
+                  <h2 className="font-marsek text-lg text-[#FF8C00] mb-4 tracking-widest text-center">
+                    &#9654; {activeContent.title}
                   </h2>
-                  <p className="text-sm text-white/70">{activeContent.body}</p>
+                  <div
+                    className="rich-content"
+                    dangerouslySetInnerHTML={{ __html: activeContent.body }}
+                  />
                 </div>
               ) : (
                 <div className="text-center">
@@ -587,17 +644,9 @@ export default function Home() {
 
           <div className="border-t border-[#00FF00]/15 mx-3" />
 
-          {/* Code listing */}
-          <div className="flex-1 px-3 py-2 overflow-y-auto space-y-0.5">
-            {submenuItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex justify-between text-[9px] py-0.5 hover:bg-[#00FF00]/5 px-1 cursor-default"
-              >
-                <span className="text-[#00FF00]/70">{item.label}</span>
-                <span className="text-[#00FF00]/40">{item.ref}</span>
-              </div>
-            ))}
+          {/* Hierarchical submenu tree */}
+          <div className="flex-1 px-3 py-2 overflow-y-auto space-y-0">
+            {rootSubmenuItems.map((item) => renderSubmenuNode(item, 0))}
           </div>
 
           <div className="border-t border-[#00FF00]/15 mx-3" />

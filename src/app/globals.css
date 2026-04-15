@@ -19,3 +19,139 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-marsek), "Courier New", Courier, monospace;
 }
+
+/* ─── HIEROS admin: force dark theme on native form elements (Windows overrides) ─── */
+input,
+textarea,
+select,
+button {
+  background-color: #000000;
+  color: #FFFFFF;
+  border-color: rgba(0, 255, 0, 0.3);
+  font-family: "Courier New", Courier, monospace;
+}
+
+select option {
+  background-color: #000000;
+  color: #FFFFFF;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(0, 255, 0, 0.3);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #00FF00;
+}
+
+/* Force color-scheme to dark to prevent browser white defaults */
+:root {
+  color-scheme: dark;
+}
+
+/* ─── Rich content rendering (from TipTap editor) ─── */
+.rich-content {
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+}
+.rich-content h1 {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #FF8C00;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 1em 0 0.5em;
+  border-bottom: 1px solid rgba(255, 140, 0, 0.3);
+  padding-bottom: 0.3em;
+}
+.rich-content h2 {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #00FF00;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0.8em 0 0.4em;
+}
+.rich-content h3 {
+  font-size: 1em;
+  font-weight: bold;
+  color: #00FF00;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0.6em 0 0.3em;
+}
+.rich-content p {
+  margin: 0.4em 0;
+}
+.rich-content ul,
+.rich-content ol {
+  padding-left: 1.5em;
+  margin: 0.4em 0;
+}
+.rich-content ul li {
+  list-style-type: disc;
+  color: rgba(255, 255, 255, 0.7);
+}
+.rich-content ul li::marker {
+  color: #00FF00;
+}
+.rich-content ol li {
+  color: rgba(255, 255, 255, 0.7);
+}
+.rich-content ol li::marker {
+  color: #00FF00;
+}
+.rich-content blockquote {
+  border-left: 2px solid #FF8C00;
+  padding-left: 1em;
+  margin: 0.6em 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+.rich-content a {
+  color: #FF8C00;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rich-content a:hover {
+  color: #00FF00;
+}
+.rich-content img {
+  max-width: 100%;
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  margin: 0.6em 0;
+}
+.rich-content hr {
+  border: none;
+  border-top: 1px solid rgba(0, 255, 0, 0.3);
+  margin: 1em 0;
+}
+.rich-content pre {
+  background: rgba(0, 255, 0, 0.05);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  padding: 0.8em;
+  margin: 0.6em 0;
+  overflow-x: auto;
+}
+.rich-content code {
+  font-family: "Courier New", monospace;
+  color: #00FF00;
+  font-size: 0.9em;
+}
+.rich-content strong {
+  color: #FFFFFF;
+  font-weight: bold;
+}
+.rich-content em {
+  color: rgba(255, 255, 255, 0.6);
+}
+.rich-content s {
+  color: rgba(255, 255, 255, 0.3);
+}

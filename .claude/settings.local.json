@@ -7,7 +7,17 @@
       "Bash(npm run:*)",
       "Bash(npx tsc *)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git config *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(npx next *)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(npx kill-port *)",
+      "Bash(taskkill //F //IM \"node.exe\" //T)"
     ]
   }
 }
