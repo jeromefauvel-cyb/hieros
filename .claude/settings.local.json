@@ -17,7 +17,16 @@
       "Bash(netstat -ano)",
       "Bash(tasklist)",
       "Bash(npx kill-port *)",
-      "Bash(taskkill //F //IM \"node.exe\" //T)"
+      "Bash(taskkill //F //IM \"node.exe\" //T)",
+      "Bash(timeout 10 bash -c 'until grep -q \"Ready\" /c/Users/User/AppData/Local/Temp/claude/C--Users-User-Dev-1/a7c26011-fe16-4132-bc92-c618201dde19/tasks/btd7l0k4f.output 2>/dev/null; do sleep 1; done')",
+      "Read(//c/Users/User/AppData/Local/Temp/claude/C--Users-User-Dev-1/a7c26011-fe16-4132-bc92-c618201dde19/tasks/**)",
+      "Bash(timeout 15 bash -c 'until grep -q \"Ready\" /c/Users/User/AppData/Local/Temp/claude/C--Users-User-Dev-1/a7c26011-fe16-4132-bc92-c618201dde19/tasks/bqvt2msjt.output 2>/dev/null; do sleep 1; done')",
+      "Bash(timeout 20 bash -c 'until grep -q \"Ready\" /c/Users/User/AppData/Local/Temp/claude/C--Users-User-Dev-1/a7c26011-fe16-4132-bc92-c618201dde19/tasks/bqvt2msjt.output 2>/dev/null; do sleep 1; done')",
+      "Bash(npx ts-node *)",
+      "Bash(node *)",
+      "Bash(npx supabase *)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")"
     ]
   }
 }

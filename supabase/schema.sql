@@ -15,10 +15,11 @@ CREATE TABLE IF NOT EXISTS announcements (
 -- 2) MENU_ITEMS (left panel buttons)
 CREATE TABLE IF NOT EXISTS menu_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  code VARCHAR(10) NOT NULL,
+  code VARCHAR(21) NOT NULL,
   label VARCHAR(50) NOT NULL,
   sort_order INT DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
+  font_size INT DEFAULT 14,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -26,9 +27,9 @@ CREATE TABLE IF NOT EXISTS menu_items (
 -- 3) SUBMENU_ITEMS (right panel codes)
 CREATE TABLE IF NOT EXISTS submenu_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  code VARCHAR(20) NOT NULL,
+  code VARCHAR(21) NOT NULL,
   label VARCHAR(50) NOT NULL,
-  ref VARCHAR(20) DEFAULT '',
+  ref VARCHAR(21) DEFAULT '',
   sort_order INT DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),

@@ -62,6 +62,8 @@ export default function AdminPage() {
   const [editing, setEditing] = useState<Record | null>(null);
   const [loading, setLoading] = useState(false);
   const [menuItemsRef, setMenuItemsRef] = useState<MenuItemRef[]>([]);
+  const [menuLabel, setMenuLabel] = useState("MENU");
+  const [menuLabelSaved, setMenuLabelSaved] = useState(true);
 
   const activeTable = navToTable(activeNav);
   const tableConfig = TABLE_CONFIG[activeTable];
@@ -83,12 +85,25 @@ export default function AdminPage() {
     }
   }, []);
 
+  const fetchMenuLabel = useCallback(async () => {
+    const res = await fetch("/api/admin/site-settings");
+    if (res.ok) {
+      const settings = await res.json();
+      const found = settings.find((s: { key: string; value: string }) => s.key === "menu_label");
+      if (found) {
+        setMenuLabel(found.value);
+        setMenuLabelSaved(true);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (authenticated) {
       fetchRecords();
       fetchMenuItemsRef();
+      fetchMenuLabel();
     }
-  }, [authenticated, activeTable, fetchRecords, fetchMenuItemsRef]);
+  }, [authenticated, activeTable, fetchRecords, fetchMenuItemsRef, fetchMenuLabel]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,13 +123,19 @@ export default function AdminPage() {
   const handleSave = async (record: Record) => {
     const isNew = !record.id;
     const method = isNew ? "POST" : "PUT";
-    await fetch(`/api/admin/${activeTable}`, {
+    const res = await fetch(`/api/admin/${activeTable}`, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(record),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Erreur inconnue" }));
+      setError(err.error || `Erreur ${res.status}`);
+      return;
+    }
     setEditing(null);
-    fetchRecords();
+    setError("");
+    await fetchRecords();
   };
 
   const handleDelete = async (id: string) => {
@@ -204,7 +225,7 @@ export default function AdminPage() {
   // ─── Editing form fields for tree items ───
   const treeEditFields = activeTable === "submenu-items"
     ? ["code", "label", "ref", "is_active"]
-    : ["code", "label", "is_active"];
+    : ["code", "label", "font_size", "is_active"];
 
   // ─── ADMIN DASHBOARD ───
   return (
@@ -266,6 +287,45 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
+            {/* Menu label setting (LEFT MENU only) */}
+            {activeNav === "left-menu" && (
+              <div className="mb-4 border border-[#00FF00]/15 p-3 bg-[#00FF00]/[0.02]">
+                <label className="text-[9px] text-[#00FF00]/50 block mb-1 tracking-wider">TITRE DE LA SECTION MENU</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={menuLabel}
+                    onChange={(e) => { setMenuLabel(e.target.value); setMenuLabelSaved(false); }}
+                    className="bg-black border border-[#00FF00]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#00FF00] w-[200px]"
+                  />
+                  <button
+                    onClick={async () => {
+                      const res = await fetch("/api/admin/site-settings", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ key: "menu_label", value: menuLabel }),
+                      });
+                      if (res.ok) {
+                        setMenuLabelSaved(true);
+                        setError("");
+                      } else {
+                        const err = await res.json().catch(() => ({ error: "Erreur" }));
+                        setError(err.error || "Erreur sauvegarde");
+                      }
+                    }}
+                    disabled={menuLabelSaved}
+                    className={`border px-3 py-1 text-xs transition-colors ${
+                      menuLabelSaved
+                        ? "border-white/10 text-white/20 cursor-default"
+                        : "border-[#00FF00]/40 text-[#00FF00] hover:bg-[#00FF00]/10"
+                    }`}
+                  >
+                    {menuLabelSaved ? "OK" : "SAUVEGARDER"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Section header */}
             <div className="mb-4 flex items-center gap-3">
               {!isTree && (
@@ -385,6 +445,15 @@ export default function AdminPage() {
                             <option value="true">ACTIF</option>
                             <option value="false">INACTIF</option>
                           </select>
+                        ) : field === "font_size" ? (
+                          <input
+                            type="number"
+                            min={8}
+                            max={32}
+                            value={Number(editing[field] ?? 14)}
+                            onChange={(e) => setEditing({ ...editing, [field]: Number(e.target.value) })}
+                            className="w-full bg-black border border-[#00FF00]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#00FF00]"
+                          />
                         ) : (
                           <input
                             type="text"
@@ -436,6 +505,9 @@ export default function AdminPage() {
                   </div>
                 )}
 
+                {error && (
+                  <p className="text-red-500 text-xs mt-3 border border-red-500/30 bg-red-500/10 px-3 py-1">{error}</p>
+                )}
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => handleSave(editing)}
@@ -444,7 +516,7 @@ export default function AdminPage() {
                     SAUVEGARDER
                   </button>
                   <button
-                    onClick={() => setEditing(null)}
+                    onClick={() => { setEditing(null); setError(""); }}
                     className="border border-white/20 text-white/50 px-4 py-1 text-xs hover:bg-white/5"
                   >
                     ANNULER

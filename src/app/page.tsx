@@ -42,6 +42,7 @@ interface MenuItem {
   sort_order: number;
   parent_id: string | null;
   position: number;
+  font_size?: number;
 }
 
 interface SubmenuItem {
@@ -136,6 +137,7 @@ export default function Home() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(fallbackMenuItems);
   const [submenuItems, setSubmenuItems] = useState<SubmenuItem[]>(fallbackSubmenuItems);
   const [contentSections, setContentSections] = useState<ContentSection[]>([]);
+  const [menuLabel, setMenuLabel] = useState("MENU");
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authEmail, setAuthEmail] = useState("");
@@ -153,22 +155,26 @@ export default function Home() {
   const fetchData = useCallback(async () => {
     if (!isSupabaseConfigured) return;
 
-    const [annRes, menuRes, subRes, contentRes] = await Promise.all([
+    const [annRes, menuRes, subRes, contentRes, settingsRes] = await Promise.all([
       supabase.from("announcements").select("*").eq("is_active", true).limit(1).single(),
       supabase.from("menu_items").select("*").eq("is_active", true).order("position").order("sort_order"),
       supabase.from("submenu_items").select("*").eq("is_active", true).order("position").order("sort_order"),
       supabase.from("content_sections").select("*").eq("is_active", true).order("module_key"),
+      supabase.from("site_settings").select("value").eq("key", "menu_label").single(),
     ]);
 
     if (annRes.data) setAnnouncement(annRes.data.message);
     if (menuRes.data) setMenuItems(menuRes.data);
     if (subRes.data) setSubmenuItems(subRes.data);
     if (contentRes.data) setContentSections(contentRes.data);
+    if (settingsRes.data) setMenuLabel(settingsRes.data.value);
   }, [isSupabaseConfigured]);
 
-  /* ─── Initial fetch ─── */
+  /* ─── Initial fetch + polling fallback (10s) ─── */
   useEffect(() => {
     fetchData();
+    const id = setInterval(fetchData, 10000);
+    return () => clearInterval(id);
   }, [fetchData]);
 
   /* ─── Realtime subscriptions ─── */
@@ -363,6 +369,7 @@ export default function Home() {
       <button
         key={item.id}
         onClick={() => setActiveModule(item.code.toLowerCase())}
+        style={{ fontSize: item.font_size ? `${item.font_size}px` : undefined }}
         className={`inline-flex items-center gap-1 px-[8px] py-0.5 text-[10px] font-bold tracking-wider transition-colors border w-fit
           ${activeModule === item.code.toLowerCase()
             ? "bg-[#FF8C00]/10 border-[#FF8C00]/30 text-[#FF8C00]"
@@ -385,11 +392,11 @@ export default function Home() {
           className="flex justify-between py-0.5 hover:bg-[#00FF00]/5 px-1 cursor-default"
           style={{ paddingLeft: `${depth * 8 + 4}px` }}
         >
-          <span className={`text-[9px] ${isParent ? "text-[#00FF00]/90 font-bold" : "text-[#00FF00]/70"}`}>
+          <span className={`text-[12px] ${isParent ? "text-[#00FF00]/90 font-bold" : "text-[#00FF00]/70"}`}>
             {depth > 0 && <span className="text-[#00FF00]/20 mr-1">{"\u2514"}</span>}
             {item.label}
           </span>
-          <span className="text-[#00FF00]/40 text-[9px]">{item.ref}</span>
+          <span className="text-[#00FF00]/40 text-[12px]">{item.ref}</span>
         </div>
         {children.map((child) => renderSubmenuNode(child, depth + 1))}
       </div>
@@ -404,14 +411,16 @@ export default function Home() {
       <header className="flex border-b border-[#00FF00]/20">
         {/* Left section */}
         <div className="w-[200px] min-w-[200px] flex items-center justify-center px-3 py-2 border-r border-[#00FF00]/20">
-          <Image
-            src="/hieros-logo.jpg"
-            alt="HIEROS"
-            width={165}
-            height={26}
-            className="object-contain"
-            priority
-          />
+          <a href="/">
+            <Image
+              src="/hieros-logo.jpg"
+              alt="HIEROS"
+              width={165}
+              height={26}
+              className="object-contain"
+              priority
+            />
+          </a>
         </div>
 
         {/* Center section */}
@@ -474,48 +483,48 @@ export default function Home() {
         {/* ──────── LEFT COLUMN ──────── */}
         <aside className="w-[200px] min-w-[200px] border-r border-[#00FF00]/20 flex flex-col">
           {/* Info blocs GMT / YMD / GPS / IPV */}
-          <div className="p-3 space-y-1 text-[11px]">
+          <div className="p-3 space-y-1 text-[12px]">
             <div className="flex items-center">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[10px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
                 GMT
               </span>
               <span className="text-white/80 ml-2">{time}</span>
             </div>
             <div className="flex items-center">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[10px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
                 YMD
               </span>
               <span className="text-white/80 ml-2">{date}</span>
             </div>
             <div className="flex items-start">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[10px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
                 GPS
               </span>
-              <span className="text-white/80 text-[10px] leading-tight ml-2">
+              <span className="text-white/80 text-[12px] leading-tight ml-2">
                 {visitor.lat === "---" ? "---" : toDMS(parseFloat(visitor.lat), true)}
                 <br />
                 {visitor.lon === "---" ? "---" : toDMS(parseFloat(visitor.lon), false)}
               </span>
             </div>
             <div className="flex items-center">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[10px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
                 IPV
               </span>
-              <span className="text-white/80 text-[10px] ml-2">{visitor.ip}</span>
+              <span className="text-white/80 text-[12px] ml-2">{visitor.ip}</span>
             </div>
           </div>
 
           <div className="border-t border-[#00FF00]/15 mx-3" />
 
           {/* MENU label */}
-          <div className="px-3 pb-0">
+          <div className="px-3 pt-3 pb-0">
             <p className="text-[9px] text-white/50 leading-tight">
-              MENU
+              {menuLabel}
             </p>
           </div>
 
           {/* Menu buttons — mosaic layout */}
-          <div className="p-3 flex-1 overflow-y-auto flex flex-wrap gap-1 content-start">
+          <div className="p-3 flex-1 overflow-y-auto flex flex-wrap gap-2 content-start">
             {menuItems.sort((a, b) => a.position - b.position || a.sort_order - b.sort_order).map((item) => renderMenuButton(item))}
           </div>
         </aside>
