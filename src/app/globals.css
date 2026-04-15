@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --foreground: #FFFFFF;
+  --accent: #FF8C00;
+  --font-marsek: var(--font-marsek);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: "Courier New", Courier, monospace;
+  text-transform: uppercase;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-marsek), "Courier New", Courier, monospace;
+}
