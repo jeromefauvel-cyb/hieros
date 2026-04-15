@@ -355,38 +355,24 @@ export default function Home() {
   const activeContent = contentSections.find((c) => c.module_key === activeModule);
 
   /* ─── Build tree structures ─── */
-  const menuTree = buildMenuTree(menuItems);
   const submenuTree = buildMenuTree(submenuItems);
 
   /* ─── Render left menu tree recursively ─── */
-  const renderMenuNode = (item: MenuItem, depth: number): React.ReactNode => {
-    const children = menuTree.get(item.id) || [];
-    const isParent = children.length > 0;
-
+  const renderMenuButton = (item: MenuItem): React.ReactNode => {
     return (
-      <div key={item.id} className={depth > 0 ? "space-y-1" : ""} style={{ marginLeft: depth > 0 ? `${depth * 10}px` : undefined }}>
-        <button
-          onClick={() => setActiveModule(item.code.toLowerCase())}
-          className={`inline-flex items-center gap-1 px-[8px] py-0.5 text-[10px] font-bold tracking-wider transition-colors border w-fit
-            ${activeModule === item.code.toLowerCase()
-              ? "bg-[#FF8C00]/10 border-[#FF8C00]/30 text-[#FF8C00]"
-              : "bg-[#00FF00]/10 border-[#00FF00]/30 text-[#00FF00] hover:bg-[#00FF00]/20"
-            }`}
-        >
-          {depth > 0 && (
-            <span className="text-[#00FF00]/20 text-[8px] shrink-0">{"\u2514"}</span>
-          )}
-          {isParent && (
-            <span className="text-[#00FF00]/40 text-[7px] shrink-0">{"\u25BC"}</span>
-          )}
-          {item.code}
-        </button>
-        {children.map((child) => renderMenuNode(child, depth + 1))}
-      </div>
+      <button
+        key={item.id}
+        onClick={() => setActiveModule(item.code.toLowerCase())}
+        className={`inline-flex items-center gap-1 px-[8px] py-0.5 text-[10px] font-bold tracking-wider transition-colors border w-fit
+          ${activeModule === item.code.toLowerCase()
+            ? "bg-[#FF8C00]/10 border-[#FF8C00]/30 text-[#FF8C00]"
+            : "bg-[#00FF00]/10 border-[#00FF00]/30 text-[#00FF00] hover:bg-[#00FF00]/20"
+          }`}
+      >
+        {item.code}
+      </button>
     );
   };
-
-  const rootMenuItems = menuTree.get(null) || [];
 
   /* ─── Render right submenu tree recursively ─── */
   const renderSubmenuNode = (item: SubmenuItem, depth: number): React.ReactNode => {
@@ -528,9 +514,9 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Hierarchical menu tree */}
-          <div className="p-3 flex-1 overflow-y-auto space-y-1">
-            {rootMenuItems.map((item) => renderMenuNode(item, 0))}
+          {/* Menu buttons — mosaic layout */}
+          <div className="p-3 flex-1 overflow-y-auto flex flex-wrap gap-1 content-start">
+            {menuItems.sort((a, b) => a.position - b.position || a.sort_order - b.sort_order).map((item) => renderMenuButton(item))}
           </div>
         </aside>
 
