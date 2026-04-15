@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
   label VARCHAR(50) NOT NULL,
   sort_order INT DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
-  font_size INT DEFAULT 14,
+  font_size INT DEFAULT 12,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

@@ -6,7 +6,6 @@ import TreeEditor, { type TreeNode } from "@/components/TreeEditor";
 const RichEditor = lazy(() => import("@/components/RichEditor"));
 
 type TableName = "announcements" | "menu-items" | "submenu-items" | "content-sections";
-type RightSubTab = "listing" | "reach" | "tools";
 type NavSection = "announcements" | "left-menu" | "right-menu" | "content-sections";
 
 interface Record {
@@ -27,16 +26,10 @@ const TABLE_CONFIG: { [key in TableName]: { label: string; fields: string[] } } 
   "content-sections": { label: "CONTENT SECTIONS", fields: ["module_key", "title", "body", "is_active"] },
 };
 
-const RIGHT_SUB_TABS: { key: RightSubTab; label: string }[] = [
-  { key: "listing", label: "LISTING" },
-  { key: "reach", label: "REACH" },
-  { key: "tools", label: "TOOLS" },
-];
-
-const NAV_ITEMS: { key: NavSection; label: string; hasChildren?: boolean }[] = [
+const NAV_ITEMS: { key: NavSection; label: string }[] = [
   { key: "announcements", label: "ANNOUNCEMENTS" },
   { key: "left-menu", label: "LEFT MENU" },
-  { key: "right-menu", label: "RIGHT MENU", hasChildren: true },
+  { key: "right-menu", label: "RIGHT MENU" },
   { key: "content-sections", label: "CONTENT SECTIONS" },
 ];
 
@@ -57,13 +50,14 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [activeNav, setActiveNav] = useState<NavSection>("announcements");
-  const [rightSubTab, setRightSubTab] = useState<RightSubTab>("listing");
   const [records, setRecords] = useState<Record[]>([]);
   const [editing, setEditing] = useState<Record | null>(null);
   const [loading, setLoading] = useState(false);
   const [menuItemsRef, setMenuItemsRef] = useState<MenuItemRef[]>([]);
   const [menuLabel, setMenuLabel] = useState("MENU");
   const [menuLabelSaved, setMenuLabelSaved] = useState(true);
+  const [submenuLabel, setSubmenuLabel] = useState("SUB MENU_");
+  const [submenuLabelSaved, setSubmenuLabelSaved] = useState(true);
 
   const activeTable = navToTable(activeNav);
   const tableConfig = TABLE_CONFIG[activeTable];
@@ -85,15 +79,14 @@ export default function AdminPage() {
     }
   }, []);
 
-  const fetchMenuLabel = useCallback(async () => {
+  const fetchSiteSettings = useCallback(async () => {
     const res = await fetch("/api/admin/site-settings");
     if (res.ok) {
       const settings = await res.json();
-      const found = settings.find((s: { key: string; value: string }) => s.key === "menu_label");
-      if (found) {
-        setMenuLabel(found.value);
-        setMenuLabelSaved(true);
-      }
+      const ml = settings.find((s: { key: string; value: string }) => s.key === "menu_label");
+      if (ml) { setMenuLabel(ml.value); setMenuLabelSaved(true); }
+      const sl = settings.find((s: { key: string; value: string }) => s.key === "submenu_label");
+      if (sl) { setSubmenuLabel(sl.value); setSubmenuLabelSaved(true); }
     }
   }, []);
 
@@ -101,9 +94,9 @@ export default function AdminPage() {
     if (authenticated) {
       fetchRecords();
       fetchMenuItemsRef();
-      fetchMenuLabel();
+      fetchSiteSettings();
     }
-  }, [authenticated, activeTable, fetchRecords, fetchMenuItemsRef, fetchMenuLabel]);
+  }, [authenticated, activeTable, fetchRecords, fetchMenuItemsRef, fetchSiteSettings]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,10 +116,11 @@ export default function AdminPage() {
   const handleSave = async (record: Record) => {
     const isNew = !record.id;
     const method = isNew ? "POST" : "PUT";
+    const payload = isNew ? Object.fromEntries(Object.entries(record).filter(([k, v]) => k !== "id" && v !== "")) : record;
     const res = await fetch(`/api/admin/${activeTable}`, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(record),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Erreur inconnue" }));
@@ -242,50 +236,18 @@ export default function AdminPage() {
           <button
             key={item.key}
             onClick={() => { setActiveNav(item.key); setEditing(null); }}
-            className={`text-[11px] px-3 py-1 border transition-colors flex items-center gap-1 ${
+            className={`text-[11px] px-3 py-1 border transition-colors ${
               activeNav === item.key
                 ? "border-[#FF8C00] text-[#FF8C00] bg-[#FF8C00]/10"
                 : "border-[#00FF00]/20 text-[#00FF00]/60 hover:border-[#00FF00]/50"
             }`}
           >
-            {item.hasChildren && (
-              <span className="text-[8px]">{activeNav === item.key ? "\u25BC" : "\u25B6"}</span>
-            )}
             {item.label}
           </button>
         ))}
       </div>
 
-      {/* RIGHT MENU sub-tabs */}
-      {isRightMenu && (
-        <div className="border-b border-[#00FF00]/10 px-6 py-1.5 flex items-center gap-1 bg-[#00FF00]/[0.02]">
-          <span className="text-[9px] text-white/20 mr-2 tracking-wider">{"\u2514\u2500"}</span>
-          {RIGHT_SUB_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => { setRightSubTab(tab.key); setEditing(null); }}
-              className={`text-[10px] px-2.5 py-0.5 border transition-colors ${
-                rightSubTab === tab.key
-                  ? "border-[#FF8C00]/60 text-[#FF8C00] bg-[#FF8C00]/10"
-                  : "border-[#00FF00]/15 text-[#00FF00]/40 hover:border-[#00FF00]/30 hover:text-[#00FF00]/60"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="p-6">
-        {/* RIGHT MENU placeholder for REACH / TOOLS */}
-        {isRightMenu && rightSubTab !== "listing" ? (
-          <div className="border border-[#00FF00]/15 p-8 flex flex-col items-center justify-center min-h-[200px]">
-            <span className="text-[#FF8C00] text-sm tracking-widest font-bold mb-2">
-              {RIGHT_SUB_TABS.find((t) => t.key === rightSubTab)?.label}
-            </span>
-            <span className="text-white/20 text-[10px] tracking-wider">SECTION EN CONSTRUCTION</span>
-          </div>
-        ) : (
           <>
             {/* Menu label setting (LEFT MENU only) */}
             {activeNav === "left-menu" && (
@@ -326,6 +288,45 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Submenu label setting (RIGHT MENU only) */}
+            {activeNav === "right-menu" && (
+              <div className="mb-4 border border-[#00FF00]/15 p-3 bg-[#00FF00]/[0.02]">
+                <label className="text-[9px] text-[#00FF00]/50 block mb-1 tracking-wider">TITRE DE LA SECTION SUBMENU</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={submenuLabel}
+                    onChange={(e) => { setSubmenuLabel(e.target.value); setSubmenuLabelSaved(false); }}
+                    className="bg-black border border-[#00FF00]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#00FF00] w-[200px]"
+                  />
+                  <button
+                    onClick={async () => {
+                      const res = await fetch("/api/admin/site-settings", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ key: "submenu_label", value: submenuLabel }),
+                      });
+                      if (res.ok) {
+                        setSubmenuLabelSaved(true);
+                        setError("");
+                      } else {
+                        const err = await res.json().catch(() => ({ error: "Erreur" }));
+                        setError(err.error || "Erreur sauvegarde");
+                      }
+                    }}
+                    disabled={submenuLabelSaved}
+                    className={`border px-3 py-1 text-xs transition-colors ${
+                      submenuLabelSaved
+                        ? "border-white/10 text-white/20 cursor-default"
+                        : "border-[#00FF00]/40 text-[#00FF00] hover:bg-[#00FF00]/10"
+                    }`}
+                  >
+                    {submenuLabelSaved ? "OK" : "SAUVEGARDER"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Section header */}
             <div className="mb-4 flex items-center gap-3">
               {!isTree && (
@@ -337,7 +338,7 @@ export default function AdminPage() {
                 </button>
               )}
               <span className="text-white/20 text-[9px] tracking-wider">
-                {isRightMenu ? "RIGHT MENU \u2192 LISTING" : tableConfig.label}
+                {tableConfig.label}
               </span>
             </div>
 
@@ -450,7 +451,7 @@ export default function AdminPage() {
                             type="number"
                             min={8}
                             max={32}
-                            value={Number(editing[field] ?? 14)}
+                            value={Number(editing[field] ?? 12)}
                             onChange={(e) => setEditing({ ...editing, [field]: Number(e.target.value) })}
                             className="w-full bg-black border border-[#00FF00]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#00FF00]"
                           />
@@ -537,6 +538,7 @@ export default function AdminPage() {
                 onEdit={(item) => setEditing(item as unknown as Record)}
                 onDelete={handleDelete}
                 showRef={activeTable === "submenu-items"}
+                flat={activeTable === "menu-items"}
               />
             ) : isContentSections ? (
               /* ─── CONTENT SECTIONS: Card view ─── */
@@ -639,7 +641,6 @@ export default function AdminPage() {
               </table>
             )}
           </>
-        )}
       </div>
     </div>
   );

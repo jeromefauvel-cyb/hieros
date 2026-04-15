@@ -138,6 +138,8 @@ export default function Home() {
   const [submenuItems, setSubmenuItems] = useState<SubmenuItem[]>(fallbackSubmenuItems);
   const [contentSections, setContentSections] = useState<ContentSection[]>([]);
   const [menuLabel, setMenuLabel] = useState("MENU");
+  const [submenuLabel, setSubmenuLabel] = useState("SUB MENU_");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authEmail, setAuthEmail] = useState("");
@@ -160,14 +162,19 @@ export default function Home() {
       supabase.from("menu_items").select("*").eq("is_active", true).order("position").order("sort_order"),
       supabase.from("submenu_items").select("*").eq("is_active", true).order("position").order("sort_order"),
       supabase.from("content_sections").select("*").eq("is_active", true).order("module_key"),
-      supabase.from("site_settings").select("value").eq("key", "menu_label").single(),
+      supabase.from("site_settings").select("key, value"),
     ]);
 
     if (annRes.data) setAnnouncement(annRes.data.message);
     if (menuRes.data) setMenuItems(menuRes.data);
     if (subRes.data) setSubmenuItems(subRes.data);
     if (contentRes.data) setContentSections(contentRes.data);
-    if (settingsRes.data) setMenuLabel(settingsRes.data.value);
+    if (settingsRes.data) {
+      const ml = settingsRes.data.find((s: { key: string; value: string }) => s.key === "menu_label");
+      if (ml) setMenuLabel(ml.value);
+      const sl = settingsRes.data.find((s: { key: string; value: string }) => s.key === "submenu_label");
+      if (sl) setSubmenuLabel(sl.value);
+    }
   }, [isSupabaseConfigured]);
 
   /* ─── Initial fetch + polling fallback (10s) ─── */
@@ -619,29 +626,41 @@ export default function Home() {
           {/* SUB MENU header */}
           <div className="px-3 pt-3 pb-3">
             <h3 className="font-marsek text-[13px] text-[#00FF00] tracking-widest">
-              SUB MENU_
+              {submenuLabel}
             </h3>
-            <div className="flex gap-3 mt-1 text-[10px]">
-              <span className="text-[#00FF00]/80 hover:text-[#FF8C00] cursor-pointer">
-                LISTING
-              </span>
-              <span className="text-[#00FF00]/80 hover:text-[#FF8C00] cursor-pointer">
-                REACH
-              </span>
-              <span className="text-[#00FF00]/80 hover:text-[#FF8C00] cursor-pointer">
-                TOOLS
-              </span>
-            </div>
-            <div className="text-[8px] text-white/30 mt-1 text-right">
-              _ING.COM
-            </div>
+            {rootSubmenuItems.length > 0 && (
+              <div className="flex gap-3 mt-1 text-[10px]">
+                {rootSubmenuItems.map((cat) => (
+                  <span
+                    key={cat.id}
+                    onClick={() => setActiveCategory(activeCategory === cat.id ? null : cat.id)}
+                    className={`cursor-pointer transition-colors ${
+                      activeCategory === cat.id
+                        ? "text-[#FF8C00]"
+                        : "text-[#00FF00]/80 hover:text-[#FF8C00]"
+                    }`}
+                  >
+                    {cat.code}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="border-t border-[#00FF00]/15 mx-3" />
 
-          {/* Hierarchical submenu tree */}
+          {/* Submenu items for active category */}
           <div className="flex-1 px-3 py-2 overflow-y-auto space-y-0">
-            {rootSubmenuItems.map((item) => renderSubmenuNode(item, 0))}
+            {activeCategory ? (
+              (submenuTree.get(activeCategory) || []).map((item) => (
+                <div key={item.id} className="flex justify-between py-0.5 hover:bg-[#00FF00]/5 px-1 cursor-default">
+                  <span className="text-[12px] text-[#00FF00]/70">{item.label}</span>
+                  <span className="text-[#00FF00]/40 text-[12px]">{item.ref}</span>
+                </div>
+              ))
+            ) : (
+              rootSubmenuItems.map((item) => renderSubmenuNode(item, 0))
+            )}
           </div>
 
           <div className="border-t border-[#00FF00]/15 mx-3" />
