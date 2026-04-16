@@ -43,16 +43,25 @@ export async function POST(req: NextRequest) {
   }
 
   const message = body.message;
-  if (!message?.text || !message?.chat?.id) {
-    console.log("[WEBHOOK] No text or chat id, ignoring");
+  if (!message?.chat?.id) {
+    console.log("[WEBHOOK] No chat id, ignoring");
     return NextResponse.json({ ok: true });
   }
 
   const chatId = message.chat.id;
-  const text = message.text;
   const tgUsername = message.from?.username || "";
   const firstName = message.from?.first_name || "";
-  console.log(`[WEBHOOK] chatId=${chatId} username=${tgUsername} firstName=${firstName} text=${text}`);
+
+  // Handle file messages (photo, video, document) from admin
+  const hasFile = message.photo || message.video || message.document;
+  let text = message.text || message.caption || "";
+
+  if (!text && !hasFile) {
+    console.log("[WEBHOOK] No text or file, ignoring");
+    return NextResponse.json({ ok: true });
+  }
+
+  console.log(`[WEBHOOK] chatId=${chatId} username=${tgUsername} text=${text} hasFile=${!!hasFile}`);
 
   // Find user
   let user;
@@ -112,13 +121,13 @@ export async function POST(req: NextRequest) {
       let targetUsername = "";
       let replyText = text;
 
-      // Method 1: Telegram reply to a forwarded message — extract @username from original
-      const replyTo = message.reply_to_message?.text;
+      // Method 1: Telegram reply — extract @username from original message
+      const replyTo = message.reply_to_message?.text || message.reply_to_message?.caption || "";
       if (replyTo) {
-        const replyMatch = replyTo.match(/MESSAGE DE @(\S+):/);
+        const replyMatch = replyTo.match(/(?:MESSAGE DE |FICHIER DE )@(\S+)/);
         if (replyMatch) {
-          targetUsername = replyMatch[1].toLowerCase();
-          replyText = text; // full text is the reply
+          targetUsername = replyMatch[1].toLowerCase().replace(/:$/, "");
+          replyText = text;
           console.log(`[WEBHOOK] Admin reply (via Telegram reply) to @${targetUsername}`);
         }
       }
@@ -138,15 +147,39 @@ export async function POST(req: NextRequest) {
           (u) => u.user_metadata?.telegram_username?.toLowerCase() === targetUsername
         );
         if (targetUser) {
-          // Send to user via Telegram if they have telegram_id
-          if (targetUser.user_metadata?.telegram_id) {
+          // Resolve file URL if admin sent a file
+          let fileUrl = "";
+          if (hasFile) {
+            let fileId = "";
+            if (message.photo) fileId = message.photo[message.photo.length - 1].file_id;
+            else if (message.video) fileId = message.video.file_id;
+            else if (message.document) fileId = message.document.file_id;
+            if (fileId) {
+              const fileRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
+              const fileData = await fileRes.json();
+              if (fileData.ok) {
+                fileUrl = `https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`;
+              }
+            }
+          }
+
+          // Build content
+          let content = replyText;
+          if (fileUrl) {
+            const isVideo = !!message.video;
+            content = `[${isVideo ? "VIDEO" : "IMAGE"}]${fileUrl}${replyText ? "\n" + replyText : ""}`;
+          }
+
+          // Send text to user via Telegram
+          if (targetUser.user_metadata?.telegram_id && replyText) {
             await sendTelegram(token, targetUser.user_metadata.telegram_id, replyText);
           }
+
           // Save in DB for realtime display on site
           const { error: insertErr } = await supabaseAdmin.from("messages").insert({
             user_id: targetUser.id,
             telegram_chat_id: targetUser.user_metadata?.telegram_id || null,
-            content: replyText,
+            content,
             direction: "out",
             is_read: false,
           });
