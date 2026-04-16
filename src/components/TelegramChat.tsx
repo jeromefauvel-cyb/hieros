@@ -24,7 +24,13 @@ export default function TelegramChat({ user }: { user: User }) {
 
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages]);
+    // Mark messages as read on open
+    fetch("/api/telegram/messages", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: user.id }),
+    });
+  }, [fetchMessages, user.id]);
 
   // Realtime subscription
   useEffect(() => {

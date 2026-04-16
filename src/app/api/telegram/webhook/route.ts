@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
     if (text === "/start") {
       console.log(`[WEBHOOK] Processing /start`);
       const reply = user
-        ? `BIENVENUE ${user.user_metadata?.display_name || user.email || firstName}. VOTRE COMPTE EST LIE.`
-        : `BIENVENUE SUR HIEROS BOT.\n\nPOUR LIER VOTRE COMPTE :\n1. CONNECTEZ-VOUS SUR LE SITE\n2. ALLEZ DANS ACCOUNT\n3. ENTREZ VOTRE USERNAME TELEGRAM : @${tgUsername || "votre_username"}\n4. ENVOYEZ /start ICI A NOUVEAU`;
+        ? `HIEROS_TELEGRAM ONLINE.\nVOTRE COMPTE EST LIE.\nID: ${chatId}\n\n> YOU CAN USE THE CHAT.`
+        : `HIEROS_TELEGRAM ONLINE.\nID: ${chatId}\n\n> POUR LIER VOTRE COMPTE :\n1. CONNECTEZ-VOUS SUR LE SITE\n2. ALLEZ DANS ACCOUNT\n3. ENTREZ VOTRE USERNAME TELEGRAM : @${tgUsername || "votre_username"}\n4. ENVOYEZ /start ICI A NOUVEAU`;
       await sendTelegram(token, chatId, reply);
       console.log("[WEBHOOK] === END /start ===");
       return NextResponse.json({ ok: true });

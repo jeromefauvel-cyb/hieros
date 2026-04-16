@@ -356,6 +356,7 @@ function AccountPanel({ user, setUser }: {
 export default function Home() {
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
   const [visitor, setVisitor] = useState<VisitorInfo>({
     ip: "---",
     lat: "---",
@@ -443,6 +444,27 @@ export default function Home() {
       setActiveModule(splash.module_key);
     }
   }, [contentSections, splashDismissed, activeModule]);
+
+  /* ─── Unread messages count ─── */
+  useEffect(() => {
+    if (!user?.user_metadata?.telegram_username) return;
+    const fetchUnread = () => {
+      fetch(`/api/telegram/unread?user_id=${user.id}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d) setUnreadCount(d.count); })
+        .catch(() => {});
+    };
+    fetchUnread();
+    const id = setInterval(fetchUnread, 10000);
+    return () => clearInterval(id);
+  }, [user]);
+
+  /* ─── Reset unread when opening chat ─── */
+  useEffect(() => {
+    if (activeModule === "telegram" && user) {
+      setUnreadCount(0);
+    }
+  }, [activeModule, user]);
 
   /* ─── Realtime subscriptions ─── */
   useEffect(() => {
@@ -759,6 +781,22 @@ export default function Home() {
               >
                 ACCOUNT
               </button>
+              {user.user_metadata?.telegram_username && (
+                <button
+                  onClick={() => setActiveModule("telegram")}
+                  title="TELEGRAM"
+                  className="hover:opacity-80 transition-opacity relative"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#33FF33">
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[7px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full leading-none">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="border border-red-500/40 text-red-500 px-2 py-0.5 text-[11px] hover:bg-red-500/30 transition-colors shrink-0 tracking-wider"

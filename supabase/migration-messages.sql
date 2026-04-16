@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS messages (
   telegram_chat_id BIGINT,
   content TEXT NOT NULL,
   direction VARCHAR(4) NOT NULL DEFAULT 'in', -- 'in' = from user, 'out' = from bot/admin
+  is_read BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

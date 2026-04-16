@@ -17,3 +17,23 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
+
+// Mark messages as read
+export async function PUT(req: NextRequest) {
+  try {
+    const { user_id } = await req.json();
+    if (!user_id) return NextResponse.json({ error: "Missing user_id" }, { status: 400 });
+
+    const { error } = await supabaseAdmin
+      .from("messages")
+      .update({ is_read: true })
+      .eq("user_id", user_id)
+      .eq("direction", "out")
+      .eq("is_read", false);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
