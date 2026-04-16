@@ -811,7 +811,7 @@ export default function Home() {
           ) : (
             <button
               onClick={() => setActiveModule("login")}
-              className="text-[11px] text-white hover:text-[#DF8301] cursor-pointer tracking-wider"
+              className="text-[11px] text-white hover:text-[#DF8301] cursor-pointer tracking-wider ml-auto"
             >
               &gt; CHECK IN
             </button>

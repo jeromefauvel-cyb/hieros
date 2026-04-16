@@ -7,12 +7,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing user_id" }, { status: 400 });
   }
 
+  // Purge messages older than 7 days
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await supabaseAdmin
+    .from("messages")
+    .delete()
+    .lt("created_at", sevenDaysAgo);
+
+  // Fetch last 7 days
   const { data, error } = await supabaseAdmin
     .from("messages")
     .select("*")
     .eq("user_id", userId)
+    .gte("created_at", sevenDaysAgo)
     .order("created_at", { ascending: true })
-    .limit(100);
+    .limit(200);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

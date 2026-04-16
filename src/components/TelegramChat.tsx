@@ -97,8 +97,8 @@ export default function TelegramChat({ user }: { user: User }) {
             <div
               className={`max-w-[70%] px-3 py-1.5 text-[12px] ${
                 msg.direction === "in"
-                  ? "bg-[#33FF33]/10 border border-[#33FF33]/20 text-[#33FF33]/90"
-                  : "bg-[#DF8301]/10 border border-[#DF8301]/20 text-[#DF8301]/90"
+                  ? "bg-[#33FF33]/10 border border-[#33FF33]/20 text-white/90"
+                  : "bg-[#DF8301]/10 border border-[#DF8301]/20 text-white/90"
               }`}
             >
               <p className="break-words">{msg.content}</p>
