@@ -137,20 +137,21 @@ function AccountPanel({ user, setUser, onLogout, onClose }: {
   onLogout: () => void;
   onClose: () => void;
 }) {
-  const [editField, setEditField] = useState<"email" | "name" | "password" | null>(null);
+  const [editField, setEditField] = useState<"email" | "name" | "password" | "telegram" | null>(null);
   const [fieldValue, setFieldValue] = useState("");
   const [fieldConfirm, setFieldConfirm] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const startEdit = (field: "email" | "name" | "password") => {
+  const startEdit = (field: "email" | "name" | "password" | "telegram") => {
     setEditField(field);
     setError("");
     setMessage("");
     setFieldConfirm("");
     if (field === "email") setFieldValue(user.email || "");
     else if (field === "name") setFieldValue(user.user_metadata?.display_name || "");
+    else if (field === "telegram") setFieldValue(user.user_metadata?.telegram_username || "");
     else setFieldValue("");
   };
 
@@ -174,6 +175,16 @@ function AccountPanel({ user, setUser, onLogout, onClose }: {
         const { error } = await supabase.auth.updateUser({ password: fieldValue });
         if (error) { setError(error.message); setSaving(false); return; }
         setMessage("MOT DE PASSE MIS A JOUR");
+      } else if (editField === "telegram") {
+        const res = await fetch("/api/account/telegram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: user.id, telegram_username: fieldValue }),
+        });
+        if (!res.ok) { const err = await res.json(); setError(err.error || "ERREUR"); setSaving(false); return; }
+        const { data } = await supabase.auth.getUser();
+        if (data.user) setUser(data.user);
+        setMessage("TELEGRAM LIE — ENVOYEZ /START A @HI3ROS_BOT POUR FINALISER");
       }
       setEditField(null);
       setFieldValue("");
@@ -275,12 +286,53 @@ function AccountPanel({ user, setUser, onLogout, onClose }: {
         </div>
 
         {/* Telegram */}
-        {user.user_metadata?.telegram_username && (
-          <div className="border border-[#33FF33]/15 p-4">
-            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">TELEGRAM</label>
-            <p className="text-[13px] text-white/80">@{user.user_metadata.telegram_username}</p>
+        <div className="border border-[#33FF33]/15 p-4">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[9px] text-[#33FF33]/50 tracking-wider">TELEGRAM</label>
+            {user.user_metadata?.telegram_username ? (
+              <button
+                onClick={async () => {
+                  if (!confirm("DISSOCIER TELEGRAM ?")) return;
+                  await fetch("/api/account/telegram", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_id: user.id }),
+                  });
+                  const { data } = await supabase.auth.getUser();
+                  if (data.user) setUser(data.user);
+                  setMessage("TELEGRAM DISSOCIE");
+                }}
+                className="text-[9px] text-red-500 hover:text-red-400 tracking-wider"
+              >DISSOCIER</button>
+            ) : (
+              <button onClick={() => startEdit("telegram")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">CONNECTER</button>
+            )}
           </div>
-        )}
+          {editField === "telegram" ? (
+            <div className="space-y-2 mt-1">
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                1. ENVOYEZ /START A @HI3ROS_BOT SUR TELEGRAM<br />
+                2. ENTREZ VOTRE USERNAME TELEGRAM CI-DESSOUS
+              </p>
+              <div className="flex gap-2">
+                <input type="text" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="@USERNAME" className="flex-1 bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
+                <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
+                <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
+              </div>
+            </div>
+          ) : user.user_metadata?.telegram_username ? (
+            <div className="flex items-center gap-3">
+              <p className="text-[13px] text-white/80">@{user.user_metadata.telegram_username}</p>
+              {user.user_metadata?.telegram_id ? (
+                <span className="text-[9px] text-[#33FF33] border border-[#33FF33]/30 px-2 py-0.5">LIE</span>
+              ) : (
+                <span className="text-[9px] text-[#DF8301] border border-[#DF8301]/30 px-2 py-0.5">EN ATTENTE — ENVOYEZ /START AU BOT</span>
+              )}
+            </div>
+          ) : (
+            <p className="text-[13px] text-white/40">NON CONNECTE</p>
+          )}
+        </div>
 
         {/* Dates */}
         <div className="grid grid-cols-2 gap-3">

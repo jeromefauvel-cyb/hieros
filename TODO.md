@@ -4,22 +4,22 @@
 
 
 ## A FAIRE
-- Messagerie Telegram integree (chat bot dans le site)
 - Calculatrice taux composes (mini-app)
 - Jeu Penalty 1v1 (mini-app)
 - Page paiement par QR code USDT/USDC
-- Espace utilisateur apres authentification (dashboard)
 - Templates pages produits
-- Animation d'accueil (splash page)
 - Calendrier lunaire / cycles Saros
 - CL1 Petrole (cours en temps reel)
-- Fix sub-menu accumulation (clic droit menu duplique le contenu)
-- Bouton Telegram (widget login/bot)
 
 ## IDEES
 
 
 ## FAIT
+- Messagerie Telegram integree (chat realtime, webhook, /start, auto-link)
+- Espace utilisateur (page account avec email, mdp, nom, card number, telegram)
+- Liaison compte Telegram (connecter/dissocier depuis account)
+- Splash page fullscreen (animation d'accueil)
+- Bouton Telegram (widget login/bot + webhook configure)
 - Refonte menus admin (LEFT + RIGHT sur une page unique)
 - TreeEditor flat pour LEFT MENU, hierarchique pour RIGHT MENU
 - Champ font_size sur menu items
