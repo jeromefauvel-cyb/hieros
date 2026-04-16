@@ -100,31 +100,60 @@ export async function POST(req: NextRequest) {
       if (insertError) console.error(`[WEBHOOK] Insert error: ${insertError.message}`);
     }
 
-    // Forward to admin
+    // Forward user messages to admin
     if (adminChatId && String(chatId) !== adminChatId) {
       const username = tgUsername || user?.email || "Unknown";
-      console.log(`[WEBHOOK] Forwarding to admin`);
-      await sendTelegram(token, adminChatId, `${username}:\n${text}`);
+      console.log(`[WEBHOOK] Forwarding to admin: MESSAGE DE @${username}`);
+      await sendTelegram(token, adminChatId, `MESSAGE DE @${username}:\n${text}`);
     }
 
-    // Admin reply routing
+    // Admin reply routing (via reply or @username format)
     if (adminChatId && String(chatId) === adminChatId) {
-      const match = text.match(/^@(\S+)\s+([\s\S]+)/);
-      if (match) {
-        const targetUsername = match[1].toLowerCase();
-        const replyText = match[2];
+      let targetUsername = "";
+      let replyText = text;
+
+      // Method 1: Telegram reply to a forwarded message — extract @username from original
+      const replyTo = message.reply_to_message?.text;
+      if (replyTo) {
+        const replyMatch = replyTo.match(/MESSAGE DE @(\S+):/);
+        if (replyMatch) {
+          targetUsername = replyMatch[1].toLowerCase();
+          replyText = text; // full text is the reply
+          console.log(`[WEBHOOK] Admin reply (via Telegram reply) to @${targetUsername}`);
+        }
+      }
+
+      // Method 2: @username message format
+      if (!targetUsername) {
+        const match = text.match(/^@(\S+)\s+([\s\S]+)/);
+        if (match) {
+          targetUsername = match[1].toLowerCase();
+          replyText = match[2];
+          console.log(`[WEBHOOK] Admin reply (via @mention) to @${targetUsername}`);
+        }
+      }
+
+      if (targetUsername) {
         const targetUser = users?.users.find(
           (u) => u.user_metadata?.telegram_username?.toLowerCase() === targetUsername
         );
-        if (targetUser?.user_metadata?.telegram_id) {
-          console.log(`[WEBHOOK] Admin reply to @${targetUsername}`);
-          await sendTelegram(token, targetUser.user_metadata.telegram_id, replyText);
-          await supabaseAdmin.from("messages").insert({
+        if (targetUser) {
+          // Send to user via Telegram if they have telegram_id
+          if (targetUser.user_metadata?.telegram_id) {
+            await sendTelegram(token, targetUser.user_metadata.telegram_id, replyText);
+          }
+          // Save in DB for realtime display on site
+          const { error: insertErr } = await supabaseAdmin.from("messages").insert({
             user_id: targetUser.id,
-            telegram_chat_id: targetUser.user_metadata.telegram_id,
+            telegram_chat_id: targetUser.user_metadata?.telegram_id || null,
             content: replyText,
             direction: "out",
+            is_read: false,
           });
+          if (insertErr) console.error(`[WEBHOOK] Admin reply insert error: ${insertErr.message}`);
+          else console.log(`[WEBHOOK] Admin reply saved for user=${targetUser.id}`);
+        } else {
+          console.log(`[WEBHOOK] Admin reply: user @${targetUsername} not found`);
         }
       }
     }

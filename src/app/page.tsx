@@ -772,16 +772,10 @@ export default function Home() {
         </div>
 
         {/* Right section — Auth */}
-        <div className="w-[200px] min-w-[200px] px-3 py-2 flex items-center justify-end">
+        <div className="w-[200px] min-w-[200px] px-3 py-2 flex items-center justify-between">
           {user ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveModule("account")}
-                className="text-[11px] text-white hover:text-[#DF8301] cursor-pointer tracking-wider transition-colors"
-              >
-                ACCOUNT
-              </button>
-              {user.user_metadata?.telegram_username && (
+            <div className="flex items-center gap-2 w-full">
+              {user.user_metadata?.telegram_username ? (
                 <button
                   onClick={() => setActiveModule("telegram")}
                   title="TELEGRAM"
@@ -796,13 +790,23 @@ export default function Home() {
                     </span>
                   )}
                 </button>
+              ) : (
+                <span />
               )}
-              <button
-                onClick={handleLogout}
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => setActiveModule("account")}
+                  className="text-[11px] text-white hover:text-[#DF8301] cursor-pointer tracking-wider transition-colors"
+                >
+                  ACCOUNT
+                </button>
+                <button
+                  onClick={handleLogout}
                 className="border border-red-500/40 text-red-500 px-2 py-0.5 text-[11px] hover:bg-red-500/30 transition-colors shrink-0 tracking-wider"
               >
                 CHECK OUT
-              </button>
+                </button>
+              </div>
             </div>
           ) : (
             <button
