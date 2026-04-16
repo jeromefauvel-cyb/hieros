@@ -6,7 +6,7 @@ import TreeEditor, { type TreeNode } from "@/components/TreeEditor";
 const RichEditor = lazy(() => import("@/components/RichEditor"));
 
 type TableName = "announcements" | "menu-items" | "submenu-items" | "content-sections" | "templates";
-type NavSection = "announcements" | "left-menu" | "right-menu" | "menus" | "content-sections" | "templates" | "media" | "users";
+type NavSection = "announcements" | "left-menu" | "right-menu" | "menus" | "content-sections" | "templates" | "media" | "users" | "payments";
 
 interface Record {
   id: string;
@@ -42,6 +42,7 @@ const NAV_ITEMS: { key: NavSection; label: string }[] = [
   { key: "content-sections", label: "CONTENT SECTIONS" },
   { key: "media", label: "MEDIA" },
   { key: "users", label: "USERS" },
+  { key: "payments", label: "PAYMENTS" },
 ];
 
 function navToTable(nav: NavSection): TableName {
@@ -85,6 +86,7 @@ export default function AdminPage() {
   const [mediaCopied, setMediaCopied] = useState<string | null>(null);
   const [adminUsers, setAdminUsers] = useState<{ id: string; email: string; display_name: string; card_number: string; telegram_username: string; created_at: string; last_sign_in_at: string }[]>([]);
   const [editingUser, setEditingUser] = useState<{ id: string; card_number: string } | null>(null);
+  const [payments, setPayments] = useState<{ id: string; from_user_id: string; to_card_number: string; amount: number; currency: string; note: string; status: string; created_at: string }[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [userFilter, setUserFilter] = useState<"all" | "with-card" | "no-card" | "telegram">("all");
   const [userDateFrom, setUserDateFrom] = useState("");
@@ -131,6 +133,11 @@ export default function AdminPage() {
     if (res.ok) setAdminUsers(await res.json());
   }, []);
 
+  const fetchPayments = useCallback(async () => {
+    const res = await fetch("/api/admin/payments");
+    if (res.ok) setPayments(await res.json());
+  }, []);
+
   const fetchMedia = useCallback(async () => {
     const res = await fetch("/api/admin/upload");
     if (res.ok) setMediaFiles(await res.json());
@@ -160,8 +167,9 @@ export default function AdminPage() {
       if (activeNav === "menus") fetchMenus();
       if (activeNav === "media") fetchMedia();
       if (activeNav === "users") fetchUsers();
+      if (activeNav === "payments") fetchPayments();
     }
-  }, [authenticated, activeTable, activeNav, fetchRecords, fetchMenuItemsRef, fetchSiteSettings, fetchMenus, fetchMedia, fetchUsers]);
+  }, [authenticated, activeTable, activeNav, fetchRecords, fetchMenuItemsRef, fetchSiteSettings, fetchMenus, fetchMedia, fetchUsers, fetchPayments]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -568,6 +576,73 @@ export default function AdminPage() {
                 </tbody>
               </table>
               </>); })()}
+            </div>
+          ) : activeNav === "payments" ? (
+            /* ─── PAYMENTS ─── */
+            <div>
+              <div className="mb-4">
+                <span className="text-white/20 text-[9px] tracking-wider">{payments.length} DEMANDE{payments.length !== 1 ? "S" : ""}</span>
+              </div>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#33FF33]/20">
+                    <th className="text-left text-[#33FF33]/50 py-2 px-2 font-normal">DE</th>
+                    <th className="text-left text-[#33FF33]/50 py-2 px-2 font-normal">VERS</th>
+                    <th className="text-left text-[#33FF33]/50 py-2 px-2 font-normal">MONTANT</th>
+                    <th className="text-left text-[#33FF33]/50 py-2 px-2 font-normal">NOTE</th>
+                    <th className="text-left text-[#33FF33]/50 py-2 px-2 font-normal">DATE</th>
+                    <th className="text-left text-[#33FF33]/50 py-2 px-2 font-normal">STATUT</th>
+                    <th className="text-right text-[#33FF33]/50 py-2 px-2 font-normal">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((p) => {
+                    const fromUser = adminUsers.find((u) => u.id === p.from_user_id);
+                    return (
+                      <tr key={p.id} className="border-b border-[#33FF33]/10 hover:bg-[#33FF33]/5">
+                        <td className="py-2 px-2 text-white/80">{fromUser?.email || fromUser?.display_name || p.from_user_id.slice(0, 8)}</td>
+                        <td className="py-2 px-2 text-white/80 font-mono">{p.to_card_number}</td>
+                        <td className="py-2 px-2 text-white/80">{p.amount} {p.currency}</td>
+                        <td className="py-2 px-2 text-white/50 max-w-[150px] truncate">{p.note || "-"}</td>
+                        <td className="py-2 px-2 text-white/50">{new Date(p.created_at).toLocaleDateString("fr-FR")}</td>
+                        <td className={`py-2 px-2 ${p.status === "completed" ? "text-[#33FF33]" : p.status === "rejected" ? "text-red-500" : "text-[#DF8301]"}`}>{p.status.toUpperCase()}</td>
+                        <td className="py-2 px-2 text-right flex gap-1 justify-end">
+                          {p.status === "pending" && (
+                            <>
+                              <button
+                                onClick={async () => {
+                                  await fetch("/api/admin/payments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, status: "approved" }) });
+                                  fetchPayments();
+                                }}
+                                className="text-[#33FF33] text-[10px] border border-[#33FF33]/30 px-2 py-0.5 hover:bg-[#33FF33]/10"
+                              >OK</button>
+                              <button
+                                onClick={async () => {
+                                  await fetch("/api/admin/payments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, status: "rejected" }) });
+                                  fetchPayments();
+                                }}
+                                className="text-red-500 text-[10px] border border-red-500/30 px-2 py-0.5 hover:bg-red-500/10"
+                              >NON</button>
+                            </>
+                          )}
+                          {p.status === "approved" && (
+                            <button
+                              onClick={async () => {
+                                await fetch("/api/admin/payments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, status: "completed" }) });
+                                fetchPayments();
+                              }}
+                              className="text-[#33FF33] text-[10px] border border-[#33FF33]/30 px-2 py-0.5 hover:bg-[#33FF33]/10"
+                            >DONE</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {payments.length === 0 && (
+                    <tr><td colSpan={7} className="py-4 text-center text-white/30">AUCUNE DEMANDE</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           ) : activeNav === "media" ? (
             /* ─── MEDIA LIBRARY ─── */

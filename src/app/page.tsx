@@ -130,6 +130,213 @@ function toDMS(decimal: number, isLat: boolean): string {
   return `${d}°${String(m).padStart(2, "0")}'${String(s).padStart(4, "0")}"${dir}`;
 }
 
+/* ─── Funding Section ─── */
+function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => void }) {
+  const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrUploading, setQrUploading] = useState(false);
+  const [qrLabel, setQrLabel] = useState("USDT");
+  const [payTo, setPayTo] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  const [payCurrency, setPayCurrency] = useState("USDT");
+  const [payNote, setPayNote] = useState("");
+  const [paySending, setPaySending] = useState(false);
+  const [payMessage, setPayMessage] = useState("");
+  const [requests, setRequests] = useState<{ id: string; to_card_number: string; amount: number; currency: string; status: string; created_at: string; note: string }[]>([]);
+  const qrInputRef = useRef<HTMLInputElement>(null);
+
+  const qrCodes: { label: string; url: string }[] = user.user_metadata?.qr_codes || [];
+
+  const fetchRequests = useCallback(async () => {
+    const res = await fetch(`/api/account/funding?user_id=${user.id}`);
+    if (res.ok) setRequests(await res.json());
+  }, [user.id]);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  const handleQrUpload = async () => {
+    if (!qrFile || !qrLabel.trim()) return;
+    setQrUploading(true);
+    const formData = new FormData();
+    formData.append("file", qrFile);
+    const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+    if (res.ok) {
+      const { url } = await res.json();
+      const updated = [...qrCodes, { label: qrLabel.trim(), url }];
+      await fetch("/api/account/funding", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user.id, qr_codes: updated }),
+      });
+      const { data } = await supabase.auth.getUser();
+      if (data.user) setUser(data.user);
+      setQrFile(null);
+      setQrLabel("USDT");
+    }
+    setQrUploading(false);
+  };
+
+  const removeQr = async (index: number) => {
+    const updated = qrCodes.filter((_, i) => i !== index);
+    await fetch("/api/account/funding", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: user.id, qr_codes: updated }),
+    });
+    const { data } = await supabase.auth.getUser();
+    if (data.user) setUser(data.user);
+  };
+
+  const handlePayRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payTo.trim() || !payAmount) return;
+    setPaySending(true);
+    setPayMessage("");
+    const res = await fetch("/api/account/funding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from_user_id: user.id, to_card_number: payTo.trim(), amount: parseFloat(payAmount), currency: payCurrency, note: payNote }),
+    });
+    if (res.ok) {
+      setPayMessage("DEMANDE ENVOYEE");
+      setPayTo("");
+      setPayAmount("");
+      setPayNote("");
+      fetchRequests();
+    }
+    setPaySending(false);
+  };
+
+  const statusColor = (s: string) => {
+    if (s === "completed") return "text-[#33FF33]";
+    if (s === "approved") return "text-[#33FF33]/70";
+    if (s === "rejected") return "text-red-500";
+    return "text-[#DF8301]";
+  };
+
+  return (
+    <div className="border border-[#33FF33]/15 p-4">
+      <label className="text-[9px] text-[#33FF33]/50 block mb-3 tracking-wider">FUNDING</label>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* QR Codes */}
+        <div>
+          <label className="text-[9px] text-white/40 block mb-2 tracking-wider">MES QR CODES</label>
+          {qrCodes.length > 0 && (
+            <div className="flex gap-2 flex-wrap mb-3">
+              {qrCodes.map((qr, i) => (
+                <div key={i} className="border border-[#33FF33]/15 p-2 group relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qr.url} alt={qr.label} className="w-20 h-20 object-contain" />
+                  <p className="text-[8px] text-white/50 text-center mt-1">{qr.label}</p>
+                  <button
+                    onClick={() => removeQr(i)}
+                    className="absolute -top-1 -right-1 bg-red-500 text-black text-[8px] w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >X</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={qrLabel}
+              onChange={(e) => setQrLabel(e.target.value)}
+              placeholder="LABEL (USDT, USDC...)"
+              className="bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] w-[100px]"
+            />
+            <button
+              type="button"
+              onClick={() => qrInputRef.current?.click()}
+              className="border border-[#33FF33]/30 text-[#33FF33]/60 px-2 py-1 text-[10px] hover:bg-[#33FF33]/10 hover:text-[#33FF33] transition-colors"
+            >
+              {qrFile ? qrFile.name.slice(0, 15) : "CHOISIR QR"}
+            </button>
+            {qrFile && (
+              <button
+                onClick={handleQrUpload}
+                disabled={qrUploading}
+                className="border border-[#33FF33]/40 text-[#33FF33] px-2 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50"
+              >
+                {qrUploading ? "..." : "UPLOAD"}
+              </button>
+            )}
+            <input ref={qrInputRef} type="file" accept="image/*" onChange={(e) => setQrFile(e.target.files?.[0] || null)} className="hidden" />
+          </div>
+        </div>
+
+        {/* Payment Request */}
+        <div>
+          <label className="text-[9px] text-white/40 block mb-2 tracking-wider">DEMANDE DE PAIEMENT</label>
+          <form onSubmit={handlePayRequest} className="space-y-2">
+            <input
+              type="text"
+              value={payTo}
+              onChange={(e) => setPayTo(e.target.value)}
+              placeholder="CARD NUMBER DESTINATAIRE"
+              required
+              className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20 font-mono"
+            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                placeholder="MONTANT"
+                required
+                className="flex-1 bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20"
+              />
+              <select
+                value={payCurrency}
+                onChange={(e) => setPayCurrency(e.target.value)}
+                className="bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33]"
+              >
+                <option value="USDT">USDT</option>
+                <option value="USDC">USDC</option>
+                <option value="BTC">BTC</option>
+                <option value="ETH">ETH</option>
+              </select>
+            </div>
+            <input
+              type="text"
+              value={payNote}
+              onChange={(e) => setPayNote(e.target.value)}
+              placeholder="NOTE (OPTIONNEL)"
+              className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20"
+            />
+            <button
+              type="submit"
+              disabled={paySending}
+              className="border border-[#DF8301]/40 text-[#DF8301] px-3 py-1 text-[10px] hover:bg-[#DF8301]/10 transition-colors disabled:opacity-50 tracking-wider"
+            >
+              {paySending ? "..." : "ENVOYER DEMANDE"}
+            </button>
+          </form>
+          {payMessage && <p className="text-[#33FF33] text-[10px] mt-2">{payMessage}</p>}
+        </div>
+      </div>
+
+      {/* Payment history */}
+      {requests.length > 0 && (
+        <div className="mt-4">
+          <label className="text-[9px] text-white/40 block mb-2 tracking-wider">HISTORIQUE</label>
+          <div className="space-y-1">
+            {requests.map((r) => (
+              <div key={r.id} className="flex items-center justify-between text-[10px] py-1 border-b border-[#33FF33]/10">
+                <span className="text-white/60 font-mono">{r.to_card_number}</span>
+                <span className="text-white/80">{r.amount} {r.currency}</span>
+                <span className={statusColor(r.status)}>{r.status.toUpperCase()}</span>
+                <span className="text-white/30">{new Date(r.created_at).toLocaleDateString("fr-FR")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Account Panel ─── */
 function AccountPanel({ user, setUser }: {
   user: User;
@@ -211,7 +418,88 @@ function AccountPanel({ user, setUser }: {
       )}
 
       <div className="space-y-3">
-        {/* Email + Password side by side */}
+        {/* CLIENT + CARD NUMBER + TELEGRAM */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Client (Nom) */}
+          <div className="border border-[#33FF33]/15 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">CLIENT</label>
+              <button onClick={() => startEdit("name")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
+            </div>
+            {editField === "name" ? (
+              <div className="flex gap-2 mt-1">
+                <input type="text" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="VOTRE NOM" className="flex-1 bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
+                <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
+                <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
+              </div>
+            ) : (
+              <p className="text-[13px] text-white/80">{user.user_metadata?.display_name || "---"}</p>
+            )}
+          </div>
+
+          {/* Card Number */}
+          <div className="border border-[#33FF33]/15 p-4">
+            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">CARD NUMBER</label>
+            <p className="text-[13px] text-white/80 font-mono tracking-[0.2em]">
+              {(() => {
+                const raw = user.user_metadata?.card_number
+                  || (user.id ? parseInt(user.id.replace(/[^a-f0-9]/g, "").slice(0, 8), 16).toString().padStart(9, "0").slice(0, 9) : "---");
+                return raw.replace(/\s/g, "").replace(/(.{3})/g, "$1 ").trim();
+              })()}
+            </p>
+          </div>
+
+          {/* Telegram */}
+          <div className="border border-[#33FF33]/15 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">TELEGRAM</label>
+              {user.user_metadata?.telegram_username ? (
+                <button
+                  onClick={async () => {
+                    if (!confirm("DISSOCIER TELEGRAM ?")) return;
+                    await fetch("/api/account/telegram", {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ user_id: user.id }),
+                    });
+                    const { data } = await supabase.auth.getUser();
+                    if (data.user) setUser(data.user);
+                    setMessage("TELEGRAM DISSOCIE");
+                  }}
+                  className="text-[9px] text-red-500 hover:text-red-400 tracking-wider"
+                >DISSOCIER</button>
+              ) : (
+                <button onClick={() => startEdit("telegram")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">CONNECTER</button>
+              )}
+            </div>
+            {editField === "telegram" ? (
+              <div className="space-y-2 mt-1">
+                <p className="text-[10px] text-white/40 leading-relaxed">
+                  1. /START A @HI3ROS_BOT<br />
+                  2. ENTREZ VOTRE USERNAME
+                </p>
+                <div className="flex gap-2">
+                  <input type="text" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="@USERNAME" className="flex-1 bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
+                  <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
+                  <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
+                </div>
+              </div>
+            ) : user.user_metadata?.telegram_username ? (
+              <div className="flex items-center gap-2">
+                <p className="text-[13px] text-white/80">@{user.user_metadata.telegram_username}</p>
+                {user.user_metadata?.telegram_id ? (
+                  <span className="text-[9px] text-[#33FF33] border border-[#33FF33]/30 px-1.5 py-0.5">CONNECTED</span>
+                ) : (
+                  <span className="text-[9px] text-[#DF8301] border border-[#DF8301]/30 px-1.5 py-0.5">EN ATTENTE</span>
+                )}
+              </div>
+            ) : (
+              <p className="text-[13px] text-white/40">NON CONNECTE</p>
+            )}
+          </div>
+        </div>
+
+        {/* Email + Password */}
         <div className="grid grid-cols-2 gap-3">
           {/* Email */}
           <div className="border border-[#33FF33]/15 p-4">
@@ -251,87 +539,6 @@ function AccountPanel({ user, setUser }: {
           </div>
         </div>
 
-        {/* Nom + Card Number side by side */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Nom */}
-          <div className="border border-[#33FF33]/15 p-4">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">NOM</label>
-              <button onClick={() => startEdit("name")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
-            </div>
-            {editField === "name" ? (
-              <div className="flex gap-2 mt-1">
-                <input type="text" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="VOTRE NOM" className="flex-1 bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
-                <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
-                <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
-              </div>
-            ) : (
-              <p className="text-[13px] text-white/80">{user.user_metadata?.display_name || "---"}</p>
-            )}
-          </div>
-
-          {/* Card Number */}
-          <div className="border border-[#33FF33]/15 p-4">
-            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">CARD NUMBER</label>
-            <p className="text-[13px] text-white/80 font-mono tracking-[0.2em]">
-              {(() => {
-                const raw = user.user_metadata?.card_number
-                  || (user.id ? parseInt(user.id.replace(/[^a-f0-9]/g, "").slice(0, 8), 16).toString().padStart(9, "0").slice(0, 9) : "---");
-                return raw.replace(/\s/g, "").replace(/(.{3})/g, "$1 ").trim();
-              })()}
-            </p>
-          </div>
-        </div>
-
-        {/* Telegram */}
-        <div className="border border-[#33FF33]/15 p-4">
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-[9px] text-[#33FF33]/50 tracking-wider">TELEGRAM</label>
-            {user.user_metadata?.telegram_username ? (
-              <button
-                onClick={async () => {
-                  if (!confirm("DISSOCIER TELEGRAM ?")) return;
-                  await fetch("/api/account/telegram", {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ user_id: user.id }),
-                  });
-                  const { data } = await supabase.auth.getUser();
-                  if (data.user) setUser(data.user);
-                  setMessage("TELEGRAM DISSOCIE");
-                }}
-                className="text-[9px] text-red-500 hover:text-red-400 tracking-wider"
-              >DISSOCIER</button>
-            ) : (
-              <button onClick={() => startEdit("telegram")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">CONNECTER</button>
-            )}
-          </div>
-          {editField === "telegram" ? (
-            <div className="space-y-2 mt-1">
-              <p className="text-[10px] text-white/40 leading-relaxed">
-                1. ENVOYEZ /START A @HI3ROS_BOT SUR TELEGRAM<br />
-                2. ENTREZ VOTRE USERNAME TELEGRAM CI-DESSOUS
-              </p>
-              <div className="flex gap-2">
-                <input type="text" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="@USERNAME" className="flex-1 bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
-                <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
-                <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
-              </div>
-            </div>
-          ) : user.user_metadata?.telegram_username ? (
-            <div className="flex items-center gap-3">
-              <p className="text-[13px] text-white/80">@{user.user_metadata.telegram_username}</p>
-              {user.user_metadata?.telegram_id ? (
-                <span className="text-[9px] text-[#33FF33] border border-[#33FF33]/30 px-2 py-0.5">LIE</span>
-              ) : (
-                <span className="text-[9px] text-[#DF8301] border border-[#DF8301]/30 px-2 py-0.5">EN ATTENTE — ENVOYEZ /START AU BOT</span>
-              )}
-            </div>
-          ) : (
-            <p className="text-[13px] text-white/40">NON CONNECTE</p>
-          )}
-        </div>
-
         {/* Dates */}
         <div className="grid grid-cols-2 gap-3">
           <div className="border border-[#33FF33]/15 p-4">
@@ -347,6 +554,9 @@ function AccountPanel({ user, setUser }: {
             </p>
           </div>
         </div>
+
+        {/* FUNDING */}
+        <FundingSection user={user} setUser={setUser} />
 
       </div>
     </div>
