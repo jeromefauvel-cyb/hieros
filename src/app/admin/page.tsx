@@ -254,8 +254,7 @@ export default function AdminPage() {
   const isContentSections = activeTable === "content-sections";
   const isTemplates = activeTable === "templates";
   const isMenus = activeNav === "menus";
-  const isRichEditor = isContentSections || isTemplates;
-  const isRightMenu = activeNav === "right-menu";
+
 
   // Build TreeNode list from records for tree tables
   const toTreeNodes = (recs: Record[]): TreeNode[] =>
