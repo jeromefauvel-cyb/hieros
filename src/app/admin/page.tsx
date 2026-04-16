@@ -613,6 +613,7 @@ export default function AdminPage() {
                         className="border border-[#33FF33]/15 bg-black group relative"
                       >
                         {/* Preview */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <div className="aspect-square flex items-center justify-center overflow-hidden bg-[#33FF33]/[0.02]">
                           {isVideo ? (
                             <video src={f.url} className="max-w-full max-h-full object-contain" muted />

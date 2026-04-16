@@ -10,7 +10,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Color from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Youtube from "@tiptap/extension-youtube";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface RichEditorProps {
   content: string;
@@ -422,6 +422,7 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
                     className="aspect-square border border-[#33FF33]/15 hover:border-[#DF8301] transition-colors overflow-hidden flex items-center justify-center bg-black"
                     title={f.name}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     {isVideo ? (
                       <video src={f.url} className="max-w-full max-h-full object-contain" muted />
                     ) : isImage ? (

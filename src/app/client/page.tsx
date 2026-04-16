@@ -83,6 +83,7 @@ export default function ClientPage() {
       <div className="p-6">
         <div className="border border-[#33FF33]/20 p-6 max-w-[600px]">
           <div className="flex items-center gap-4 mb-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             {avatarUrl && (
               <img
                 src={avatarUrl}

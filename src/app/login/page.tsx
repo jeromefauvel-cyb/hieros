@@ -65,9 +65,10 @@ export default function LoginPage() {
     script.setAttribute("data-request-access", "write");
     telegramRef.current.appendChild(script);
 
+    const node = telegramRef.current;
     return () => {
-      if (telegramRef.current) {
-        telegramRef.current.innerHTML = "";
+      if (node) {
+        node.innerHTML = "";
       }
     };
   }, []);

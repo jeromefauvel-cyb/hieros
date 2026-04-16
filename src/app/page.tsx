@@ -131,11 +131,9 @@ function toDMS(decimal: number, isLat: boolean): string {
 }
 
 /* ─── Account Panel ─── */
-function AccountPanel({ user, setUser, onLogout, onClose }: {
+function AccountPanel({ user, setUser }: {
   user: User;
   setUser: (u: User) => void;
-  onLogout: () => void;
-  onClose: () => void;
 }) {
   const [editField, setEditField] = useState<"email" | "name" | "password" | "telegram" | null>(null);
   const [fieldValue, setFieldValue] = useState("");
@@ -913,7 +911,7 @@ export default function Home() {
                   </div>
                 </div>
               ) : activeModule === "account" && user ? (
-                <AccountPanel user={user} setUser={setUser} onLogout={handleLogout} onClose={() => setActiveModule(null)} />
+                <AccountPanel user={user} setUser={setUser} />
               ) : activeModule === "telegram" && user ? (
                 <TelegramChat user={user} />
               ) : activeContent ? (
