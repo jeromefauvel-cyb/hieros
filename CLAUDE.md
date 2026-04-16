@@ -47,8 +47,9 @@
 
 ### UI/UX — Charte graphique HIEROS
 - **Fond** : noir `#000000`
-- **Couleur primaire** : vert néon `#00FF00`
-- **Couleur secondaire** : orange `#FF8C00`
+- **Couleur primaire** : Laser Green `#33FF33`
+- **Couleur secondaire** : Amber Earth `#DF8301`
+- **Couleur tertiaire** : Ash Grey `#ABA89B`
 - **Style** : terminal militaire / HUD cockpit
 - **Bordures** : fines, style cockpit
 - **Texte** : majuscules par défaut

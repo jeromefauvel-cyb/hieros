@@ -40,6 +40,8 @@ interface TreeEditorProps {
   onDelete: (id: string) => void;
   showRef?: boolean;
   flat?: boolean;
+  addRootLabel?: string;
+  addChildLabel?: string;
 }
 
 /* ─── Build children map ─── */
@@ -133,6 +135,7 @@ function SortableRow({
   overPosition,
   showRef,
   flat,
+  addChildLabel,
   hasChildren,
   isCollapsed,
   onToggle,
@@ -145,6 +148,7 @@ function SortableRow({
   overPosition: "before" | "inside" | "after" | null;
   showRef?: boolean;
   flat?: boolean;
+  addChildLabel?: string;
   hasChildren: boolean;
   isCollapsed: boolean;
   onToggle: () => void;
@@ -168,9 +172,9 @@ function SortableRow({
 
   let dropIndicator = "";
   if (isOver && !isDragging) {
-    if (overPosition === "before") dropIndicator = "border-t-2 border-t-[#FF8C00]";
-    else if (overPosition === "after") dropIndicator = "border-b-2 border-b-[#FF8C00]";
-    else if (overPosition === "inside") dropIndicator = "bg-[#FF8C00]/10 border-l-2 border-l-[#FF8C00]";
+    if (overPosition === "before") dropIndicator = "border-t-2 border-t-[#DF8301]";
+    else if (overPosition === "after") dropIndicator = "border-b-2 border-b-[#DF8301]";
+    else if (overPosition === "inside") dropIndicator = "bg-[#DF8301]/10 border-l-2 border-l-[#DF8301]";
   }
 
   return (
@@ -178,7 +182,7 @@ function SortableRow({
       ref={setNodeRef}
       style={style}
       className={`flex items-center group py-1 px-2 transition-colors
-        ${isDragging ? "opacity-30 bg-[#00FF00]/5" : "hover:bg-[#00FF00]/5"}
+        ${isDragging ? "opacity-30 bg-[#33FF33]/5" : "hover:bg-[#33FF33]/5"}
         ${dropIndicator}
       `}
     >
@@ -186,7 +190,7 @@ function SortableRow({
       <span
         {...attributes}
         {...listeners}
-        className="text-[#00FF00]/20 text-[10px] cursor-grab active:cursor-grabbing mr-1 shrink-0 select-none"
+        className="text-[#33FF33]/20 text-[10px] cursor-grab active:cursor-grabbing mr-1 shrink-0 select-none"
         title="DEPLACER"
       >
         {"\u2630"}
@@ -194,7 +198,7 @@ function SortableRow({
 
       {/* Tree lines */}
       {!flat && (
-        <span className="text-[#00FF00]/25 text-[11px] whitespace-pre font-mono select-none shrink-0">
+        <span className="text-[#33FF33]/25 text-[11px] whitespace-pre font-mono select-none shrink-0">
           {row.prefixChars}
         </span>
       )}
@@ -203,7 +207,7 @@ function SortableRow({
       {!flat && (hasChildren ? (
         <button
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="text-[#00FF00]/50 text-[9px] w-4 text-center shrink-0 hover:text-[#00FF00]"
+          className="text-[#33FF33]/50 text-[9px] w-4 text-center shrink-0 hover:text-[#33FF33]"
         >
           {isCollapsed ? "\u25B6" : "\u25BC"}
         </button>
@@ -213,7 +217,7 @@ function SortableRow({
 
       {/* Status dot */}
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 ${
-        row.node.is_active ? "bg-[#00FF00]" : "bg-red-500/50"
+        row.node.is_active ? "bg-[#33FF33]" : "bg-red-500/50"
       }`} />
 
       {/* Label */}
@@ -223,7 +227,7 @@ function SortableRow({
           <span className="text-white/30 ml-1">({row.node.label})</span>
         )}
         {showRef && row.node.ref && (
-          <span className="text-[#00FF00]/30 ml-2">{row.node.ref}</span>
+          <span className="text-[#33FF33]/30 ml-2">{row.node.ref}</span>
         )}
       </span>
 
@@ -232,15 +236,15 @@ function SortableRow({
         {!flat && (
           <button
             onClick={onAdd}
-            className="text-[#00FF00]/50 text-[9px] border border-[#00FF00]/20 px-1.5 py-0 hover:bg-[#00FF00]/10 hover:text-[#00FF00]"
-            title="AJOUTER ENFANT"
+            className="text-[#33FF33]/50 text-[9px] border border-[#33FF33]/20 px-1.5 py-0 hover:bg-[#33FF33]/10 hover:text-[#33FF33]"
+            title={addChildLabel ? `AJOUTER ${addChildLabel}` : "AJOUTER ENFANT"}
           >
-            +
+            +{addChildLabel ? ` ${addChildLabel}` : ""}
           </button>
         )}
         <button
           onClick={onEdit}
-          className="text-[#FF8C00]/50 text-[9px] border border-[#FF8C00]/20 px-1.5 py-0 hover:bg-[#FF8C00]/10 hover:text-[#FF8C00]"
+          className="text-[#DF8301]/50 text-[9px] border border-[#DF8301]/20 px-1.5 py-0 hover:bg-[#DF8301]/10 hover:text-[#DF8301]"
           title="MODIFIER"
         >
           E
@@ -260,7 +264,7 @@ function SortableRow({
 /* ═══════════════════════════════════════════════
    MAIN TREE EDITOR
    ═══════════════════════════════════════════════ */
-export default function TreeEditor({ items, onReorder, onAdd, onEdit, onDelete, showRef, flat }: TreeEditorProps) {
+export default function TreeEditor({ items, onReorder, onAdd, onEdit, onDelete, showRef, flat, addRootLabel, addChildLabel }: TreeEditorProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -378,17 +382,17 @@ export default function TreeEditor({ items, onReorder, onAdd, onEdit, onDelete, 
   };
 
   return (
-    <div className="border border-[#00FF00]/20 bg-black">
+    <div className="border border-[#33FF33]/20 bg-black">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#00FF00]/15 bg-[#00FF00]/[0.03]">
-        <span className="text-[9px] text-[#00FF00]/40 tracking-wider">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#33FF33]/15 bg-[#33FF33]/[0.03]">
+        <span className="text-[9px] text-[#33FF33]/40 tracking-wider">
           {flat ? "LISTE — DRAG & DROP" : "ARBORESCENCE — DRAG & DROP"}
         </span>
         <button
           onClick={() => onAdd(null)}
-          className="text-[9px] text-[#00FF00] border border-[#00FF00]/30 px-2 py-0.5 hover:bg-[#00FF00]/10 transition-colors"
+          className="text-[9px] text-[#33FF33] border border-[#33FF33]/30 px-2 py-0.5 hover:bg-[#33FF33]/10 transition-colors"
         >
-          + {flat ? "AJOUTER" : "RACINE"}
+          + {addRootLabel || (flat ? "AJOUTER" : "RACINE")}
         </button>
       </div>
 
@@ -417,6 +421,7 @@ export default function TreeEditor({ items, onReorder, onAdd, onEdit, onDelete, 
                     overPosition={overId === row.node.id ? overPosition : null}
                     showRef={showRef}
                     flat={flat}
+                    addChildLabel={addChildLabel}
                     hasChildren={children.length > 0}
                     isCollapsed={collapsed.has(row.node.id)}
                     onToggle={() => toggleCollapse(row.node.id)}
@@ -431,10 +436,10 @@ export default function TreeEditor({ items, onReorder, onAdd, onEdit, onDelete, 
             {/* Drag overlay */}
             <DragOverlay>
               {activeItem ? (
-                <div className="flex items-center py-1 px-2 bg-black border border-[#FF8C00]/50 opacity-90">
-                  <span className="text-[#FF8C00]/30 text-[10px] mr-2">{"\u2630"}</span>
+                <div className="flex items-center py-1 px-2 bg-black border border-[#DF8301]/50 opacity-90">
+                  <span className="text-[#DF8301]/30 text-[10px] mr-2">{"\u2630"}</span>
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 ${
-                    activeItem.is_active ? "bg-[#00FF00]" : "bg-red-500/50"
+                    activeItem.is_active ? "bg-[#33FF33]" : "bg-red-500/50"
                   }`} />
                   <span className="text-[10px] text-white/80 tracking-wider">
                     {activeItem.code}

@@ -106,7 +106,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center font-mono">
-      <div className="border border-[#00FF00]/30 p-8 w-[420px]">
+      <div className="border border-[#33FF33]/30 p-8 w-[420px]">
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <Image
@@ -118,7 +118,7 @@ export default function LoginPage() {
           />
         </div>
 
-        <h1 className="text-[#00FF00] text-sm font-bold mb-6 tracking-widest text-center">
+        <h1 className="text-[#33FF33] text-sm font-bold mb-6 tracking-widest text-center">
           {mode === "login" ? "CONNEXION" : "INSCRIPTION"}
         </h1>
 
@@ -130,7 +130,7 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="EMAIL"
             required
-            className="w-full bg-black border border-[#00FF00]/40 text-[#00FF00] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#00FF00] placeholder:text-[#00FF00]/30"
+            className="w-full bg-black border border-[#33FF33]/40 text-[#33FF33] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/30"
           />
           <input
             type="password"
@@ -139,7 +139,7 @@ export default function LoginPage() {
             placeholder="MOT DE PASSE"
             required
             minLength={6}
-            className="w-full bg-black border border-[#00FF00]/40 text-[#00FF00] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#00FF00] placeholder:text-[#00FF00]/30"
+            className="w-full bg-black border border-[#33FF33]/40 text-[#33FF33] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/30"
           />
           {error && (
             <p className="text-red-500 text-xs uppercase">{error}</p>
@@ -147,7 +147,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#00FF00]/10 border border-[#00FF00]/40 text-[#00FF00] py-2 text-sm uppercase tracking-wider hover:bg-[#00FF00]/20 transition-colors disabled:opacity-50"
+            className="w-full bg-[#33FF33]/10 border border-[#33FF33]/40 text-[#33FF33] py-2 text-sm uppercase tracking-wider hover:bg-[#33FF33]/20 transition-colors disabled:opacity-50"
           >
             {loading
               ? "CHARGEMENT..."
@@ -159,11 +159,11 @@ export default function LoginPage() {
 
         {/* Separator */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 border-t border-[#00FF00]/20" />
-          <span className="text-[#00FF00]/40 text-[10px] tracking-widest">
+          <div className="flex-1 border-t border-[#33FF33]/20" />
+          <span className="text-[#33FF33]/40 text-[10px] tracking-widest">
             OU
           </span>
-          <div className="flex-1 border-t border-[#00FF00]/20" />
+          <div className="flex-1 border-t border-[#33FF33]/20" />
         </div>
 
         {/* Telegram Widget */}
@@ -176,7 +176,7 @@ export default function LoginPage() {
               setMode(mode === "login" ? "signup" : "login");
               setError("");
             }}
-            className="text-[#FF8C00] text-[11px] tracking-wider hover:text-[#FF8C00]/80 transition-colors"
+            className="text-[#DF8301] text-[11px] tracking-wider hover:text-[#DF8301]/80 transition-colors"
           >
             {mode === "login"
               ? "PAS DE COMPTE ? INSCRIPTION"
@@ -188,7 +188,7 @@ export default function LoginPage() {
         <div className="text-center mt-4">
           <a
             href="/"
-            className="text-[#00FF00]/40 text-[10px] hover:text-[#00FF00] transition-colors tracking-wider"
+            className="text-[#33FF33]/40 text-[10px] hover:text-[#33FF33] transition-colors tracking-wider"
           >
             ← RETOUR
           </a>

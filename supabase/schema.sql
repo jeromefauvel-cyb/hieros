@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS announcements (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   message TEXT NOT NULL DEFAULT '',
   is_active BOOLEAN DEFAULT true,
+  is_scrolling BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -42,6 +43,10 @@ CREATE TABLE IF NOT EXISTS content_sections (
   module_key VARCHAR(30) NOT NULL UNIQUE,
   title VARCHAR(100) NOT NULL,
   body TEXT DEFAULT '',
+  title_color VARCHAR(20) DEFAULT '#FF8C00',
+  body_color VARCHAR(20) DEFAULT '#FFFFFF',
+  is_fullscreen BOOLEAN DEFAULT false,
+  bg_color VARCHAR(20) DEFAULT '#000000',
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()

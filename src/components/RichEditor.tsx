@@ -7,7 +7,10 @@ import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect } from "react";
+import Color from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Youtube from "@tiptap/extension-youtube";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 
 interface RichEditorProps {
   content: string;
@@ -31,15 +34,38 @@ const MenuButton = ({
     title={title}
     className={`px-2 py-1 text-[10px] border transition-colors ${
       active
-        ? "border-[#FF8C00] text-[#FF8C00] bg-[#FF8C00]/10"
-        : "border-[#00FF00]/20 text-[#00FF00]/60 hover:border-[#00FF00]/50 hover:text-[#00FF00]"
+        ? "border-[#DF8301] text-[#DF8301] bg-[#DF8301]/10"
+        : "border-[#33FF33]/20 text-[#33FF33]/60 hover:border-[#33FF33]/50 hover:text-[#33FF33]"
     }`}
   >
     {children}
   </button>
 );
 
+interface MediaFile {
+  name: string;
+  url: string;
+  type: string;
+}
+
 export default function RichEditor({ content, onChange }: RichEditorProps) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchMedia = useCallback(async () => {
+    setMediaLoading(true);
+    try {
+      const res = await fetch("/api/admin/upload");
+      if (res.ok) setMediaFiles(await res.json());
+    } catch { /* ignore */ }
+    setMediaLoading(false);
+  }, []);
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -50,6 +76,9 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
       Link.configure({ openOnClick: false }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
+      TextStyle,
+      Color,
+      Youtube.configure({ width: 640, height: 360 }),
       Placeholder.configure({ placeholder: "CONTENU DE LA PAGE..." }),
     ],
     content,
@@ -70,12 +99,78 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
     }
   }, [content, editor]);
 
+  const uploadFile = useCallback(async (file: File) => {
+    if (!editor) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        alert(err.error || "ERREUR UPLOAD");
+        return;
+      }
+      const { url } = await res.json();
+      if (file.type.startsWith("video/")) {
+        editor.chain().focus().insertContent(
+          `<div class="media-wrapper"><video src="${url}" controls></video></div>`
+        ).run();
+      } else {
+        editor.chain().focus().insertContent(
+          `<div class="media-wrapper"><img src="${url}" /></div>`
+        ).run();
+      }
+    } catch {
+      alert("ERREUR UPLOAD");
+    } finally {
+      setUploading(false);
+    }
+  }, [editor]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    for (const file of files) {
+      if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+        uploadFile(file);
+      }
+    }
+  }, [uploadFile]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    for (let i = 0; i < files.length; i++) {
+      uploadFile(files[i]);
+    }
+    e.target.value = "";
+  }, [uploadFile]);
+
+  const insertMediaFromLibrary = useCallback((file: MediaFile) => {
+    if (!editor) return;
+    const isVideo = file.type?.startsWith("video/") || /\.(mp4|webm|ogg|mov)$/i.test(file.name);
+    if (isVideo) {
+      editor.chain().focus().insertContent(
+        `<div class="media-wrapper"><video src="${file.url}" controls></video></div>`
+      ).run();
+    } else {
+      editor.chain().focus().insertContent(
+        `<div class="media-wrapper"><img src="${file.url}" /></div>`
+      ).run();
+    }
+    setShowMediaPicker(false);
+  }, [editor]);
+
   if (!editor) return null;
 
   const addImage = () => {
     const url = prompt("URL DE L'IMAGE:");
     if (url) {
-      editor.chain().focus().setImage({ src: url }).run();
+      editor.chain().focus().insertContent(
+        `<div class="media-wrapper"><img src="${url}" /></div>`
+      ).run();
     }
   };
 
@@ -86,10 +181,40 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
     }
   };
 
+  const addYoutube = () => {
+    const url = prompt("URL YOUTUBE:");
+    if (url) {
+      editor.commands.setYoutubeVideo({ src: url });
+    }
+  };
+
+  const addVideo = () => {
+    const url = prompt("URL DE LA VIDEO:");
+    if (url) {
+      editor.chain().focus().insertContent(
+        `<div class="media-wrapper"><video src="${url}" controls></video></div>`
+      ).run();
+    }
+  };
+
+  const addCarousel = () => {
+    const input = prompt("URLS DES IMAGES/VIDEOS (separees par des virgules):");
+    if (!input) return;
+    const urls = input.split(",").map((u) => u.trim()).filter(Boolean);
+    if (urls.length === 0) return;
+    const slides = urls.map((url) => {
+      const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
+      return `<div class="carousel-slide">${isVideo ? `<video src="${url}" controls></video>` : `<img src="${url}" />`}</div>`;
+    }).join("");
+    editor.chain().focus().insertContent(
+      `<div class="media-carousel"><div class="carousel-track">${slides}</div><button class="carousel-prev">\u2039</button><button class="carousel-next">\u203A</button><div class="carousel-dots"></div></div>`
+    ).run();
+  };
+
   return (
-    <div className="border border-[#00FF00]/30 bg-black">
+    <div className="border border-[#33FF33]/30 bg-black">
       {/* Toolbar */}
-      <div className="flex flex-wrap gap-1 p-2 border-b border-[#00FF00]/20 bg-[#00FF00]/5">
+      <div className="flex flex-wrap gap-1 p-2 border-b border-[#33FF33]/20 bg-[#33FF33]/5">
         <MenuButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")}
@@ -119,7 +244,7 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
           S
         </MenuButton>
 
-        <span className="w-px bg-[#00FF00]/20 mx-1" />
+        <span className="w-px bg-[#33FF33]/20 mx-1" />
 
         <MenuButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -143,7 +268,7 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
           H3
         </MenuButton>
 
-        <span className="w-px bg-[#00FF00]/20 mx-1" />
+        <span className="w-px bg-[#33FF33]/20 mx-1" />
 
         <MenuButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -167,7 +292,7 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
           &ldquo;&rdquo;
         </MenuButton>
 
-        <span className="w-px bg-[#00FF00]/20 mx-1" />
+        <span className="w-px bg-[#33FF33]/20 mx-1" />
 
         <MenuButton
           onClick={() => editor.chain().focus().setTextAlign("left").run()}
@@ -191,10 +316,20 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
           &#x21E5;
         </MenuButton>
 
-        <span className="w-px bg-[#00FF00]/20 mx-1" />
+        <span className="w-px bg-[#33FF33]/20 mx-1" />
 
-        <MenuButton onClick={addImage} title="IMAGE">
+        <MenuButton onClick={addImage} title="IMAGE URL">
           IMG
+        </MenuButton>
+        <MenuButton onClick={() => fileInputRef.current?.click()} title="UPLOAD FICHIER">
+          {uploading ? "..." : "DROP"}
+        </MenuButton>
+        <MenuButton
+          onClick={() => { setShowMediaPicker(!showMediaPicker); if (!showMediaPicker) fetchMedia(); }}
+          active={showMediaPicker}
+          title="INSERER DEPUIS MEDIA"
+        >
+          MEDIA
         </MenuButton>
         <MenuButton onClick={addLink} title="LIEN">
           LINK
@@ -208,7 +343,19 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
           </MenuButton>
         )}
 
-        <span className="w-px bg-[#00FF00]/20 mx-1" />
+        <span className="w-px bg-[#33FF33]/20 mx-1" />
+
+        <MenuButton onClick={addYoutube} title="YOUTUBE">
+          YT
+        </MenuButton>
+        <MenuButton onClick={addVideo} title="VIDEO URL">
+          VID
+        </MenuButton>
+        <MenuButton onClick={addCarousel} title="CARROUSEL D'IMAGES">
+          CAROUSEL
+        </MenuButton>
+
+        <span className="w-px bg-[#33FF33]/20 mx-1" />
 
         <MenuButton
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
@@ -223,10 +370,104 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
         >
           CODE
         </MenuButton>
+
+        <span className="w-px bg-[#33FF33]/20 mx-1" />
+
+        <div className="relative inline-flex items-center">
+          <input
+            ref={colorInputRef}
+            type="color"
+            value={editor.getAttributes("textStyle").color || "#ffffff"}
+            onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+          <button
+            type="button"
+            title="COULEUR TEXTE"
+            className="px-2 py-1 text-[10px] border border-[#33FF33]/20 text-[#33FF33]/60 hover:border-[#33FF33]/50 hover:text-[#33FF33] transition-colors flex items-center gap-1"
+            onClick={() => colorInputRef.current?.click()}
+          >
+            A
+            <span
+              className="w-3 h-3 border border-white/30"
+              style={{ backgroundColor: editor.getAttributes("textStyle").color || "#ffffff" }}
+            />
+          </button>
+        </div>
+        <MenuButton
+          onClick={() => editor.chain().focus().unsetColor().run()}
+          title="RESET COULEUR"
+        >
+          A&#x0336;
+        </MenuButton>
       </div>
 
-      {/* Editor content */}
-      <EditorContent editor={editor} />
+      {/* Media picker panel */}
+      {showMediaPicker && (
+        <div className="border-b border-[#33FF33]/20 bg-[#33FF33]/[0.02] p-2 max-h-[200px] overflow-y-auto">
+          {mediaLoading ? (
+            <p className="text-[#33FF33]/30 text-[10px] text-center py-4">CHARGEMENT...</p>
+          ) : mediaFiles.length === 0 ? (
+            <p className="text-white/30 text-[10px] text-center py-4">AUCUN MEDIA</p>
+          ) : (
+            <div className="grid grid-cols-6 gap-1.5">
+              {mediaFiles.map((f) => {
+                const isVideo = f.type?.startsWith("video/") || /\.(mp4|webm|ogg|mov)$/i.test(f.name);
+                const isImage = f.type?.startsWith("image/") || /\.(gif|png|jpg|jpeg|webp|svg|bmp|avif)$/i.test(f.name);
+                return (
+                  <button
+                    key={f.name}
+                    type="button"
+                    onClick={() => insertMediaFromLibrary(f)}
+                    className="aspect-square border border-[#33FF33]/15 hover:border-[#DF8301] transition-colors overflow-hidden flex items-center justify-center bg-black"
+                    title={f.name}
+                  >
+                    {isVideo ? (
+                      <video src={f.url} className="max-w-full max-h-full object-contain" muted />
+                    ) : isImage ? (
+                      <img src={f.url} alt={f.name} className="max-w-full max-h-full object-contain" />
+                    ) : (
+                      <span className="text-[#33FF33]/30 text-[8px]">FILE</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*,.gif"
+        multiple
+        onChange={handleFileInput}
+        className="hidden"
+      />
+
+      {/* Editor content with drag & drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        className={`relative ${dragOver ? "ring-2 ring-[#DF8301] ring-inset" : ""}`}
+      >
+        {dragOver && (
+          <div className="absolute inset-0 bg-[#DF8301]/10 z-10 flex items-center justify-center pointer-events-none">
+            <span className="text-[#DF8301] text-sm tracking-widest font-bold">
+              DROP FICHIER ICI
+            </span>
+          </div>
+        )}
+        {uploading && (
+          <div className="absolute top-2 right-2 z-20 bg-black border border-[#DF8301]/50 px-3 py-1 text-[10px] text-[#DF8301] tracking-wider">
+            UPLOAD EN COURS...
+          </div>
+        )}
+        <EditorContent editor={editor} />
+      </div>
 
       {/* Editor styles */}
       <style jsx global>{`
@@ -253,7 +494,7 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
         .ProseMirror h1 {
           font-size: 1.5em;
           font-weight: bold;
-          color: #ff8c00;
+          color: #df8301;
           text-transform: uppercase;
           letter-spacing: 0.15em;
           margin: 1em 0 0.5em;
@@ -296,14 +537,14 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
           color: #00ff00;
         }
         .ProseMirror blockquote {
-          border-left: 2px solid #ff8c00;
+          border-left: 2px solid #df8301;
           padding-left: 1em;
           margin: 0.6em 0;
           color: rgba(255, 255, 255, 0.5);
           font-style: italic;
         }
         .ProseMirror a {
-          color: #ff8c00;
+          color: #df8301;
           text-decoration: underline;
           text-underline-offset: 2px;
         }
@@ -312,8 +553,31 @@ export default function RichEditor({ content, onChange }: RichEditorProps) {
         }
         .ProseMirror img {
           max-width: 100%;
-          border: 1px solid rgba(0, 255, 0, 0.2);
+        }
+        .ProseMirror video {
+          max-width: 100%;
+        }
+        .ProseMirror iframe {
+          max-width: 100%;
+        }
+        .ProseMirror div[data-youtube-video] {
           margin: 0.6em 0;
+          text-align: center;
+        }
+        .ProseMirror div[data-youtube-video] iframe {
+          display: inline-block;
+        }
+        .ProseMirror .media-wrapper,
+        .rich-content .media-wrapper {
+          text-align: center;
+          margin: 0.6em 0;
+        }
+        .ProseMirror .media-wrapper img,
+        .ProseMirror .media-wrapper video,
+        .rich-content .media-wrapper img,
+        .rich-content .media-wrapper video {
+          display: inline-block;
+          max-width: 100%;
         }
         .ProseMirror hr {
           border: none;

@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import CarouselRenderer from "@/components/CarouselRenderer";
+import TelegramChat from "@/components/TelegramChat";
 
 declare global {
   interface Window {
@@ -59,6 +61,10 @@ interface ContentSection {
   module_key: string;
   title: string;
   body: string;
+  title_color?: string;
+  body_color?: string;
+  is_fullscreen?: boolean;
+  bg_color?: string;
 }
 
 /* ─── Fallback data (used when Supabase is not configured) ─── */
@@ -124,6 +130,179 @@ function toDMS(decimal: number, isLat: boolean): string {
   return `${d}°${String(m).padStart(2, "0")}'${String(s).padStart(4, "0")}"${dir}`;
 }
 
+/* ─── Account Panel ─── */
+function AccountPanel({ user, setUser, onLogout, onClose }: {
+  user: User;
+  setUser: (u: User) => void;
+  onLogout: () => void;
+  onClose: () => void;
+}) {
+  const [editField, setEditField] = useState<"email" | "name" | "password" | null>(null);
+  const [fieldValue, setFieldValue] = useState("");
+  const [fieldConfirm, setFieldConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const startEdit = (field: "email" | "name" | "password") => {
+    setEditField(field);
+    setError("");
+    setMessage("");
+    setFieldConfirm("");
+    if (field === "email") setFieldValue(user.email || "");
+    else if (field === "name") setFieldValue(user.user_metadata?.display_name || "");
+    else setFieldValue("");
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      if (editField === "email") {
+        const { error } = await supabase.auth.updateUser({ email: fieldValue });
+        if (error) { setError(error.message); setSaving(false); return; }
+        setMessage("EMAIL DE CONFIRMATION ENVOYE");
+      } else if (editField === "name") {
+        const { data, error } = await supabase.auth.updateUser({ data: { display_name: fieldValue } });
+        if (error) { setError(error.message); setSaving(false); return; }
+        if (data.user) setUser(data.user);
+        setMessage("NOM MIS A JOUR");
+      } else if (editField === "password") {
+        if (fieldValue.length < 6) { setError("6 CARACTERES MINIMUM"); setSaving(false); return; }
+        if (fieldValue !== fieldConfirm) { setError("LES MOTS DE PASSE NE CORRESPONDENT PAS"); setSaving(false); return; }
+        const { error } = await supabase.auth.updateUser({ password: fieldValue });
+        if (error) { setError(error.message); setSaving(false); return; }
+        setMessage("MOT DE PASSE MIS A JOUR");
+      }
+      setEditField(null);
+      setFieldValue("");
+      setFieldConfirm("");
+    } catch {
+      setError("ERREUR RESEAU");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="w-full h-full overflow-y-auto p-6">
+      <h2 className="font-marsek text-lg text-white mb-6 tracking-widest">
+        ACCOUNT
+      </h2>
+
+      {message && (
+        <div className="border border-[#33FF33]/30 bg-[#33FF33]/10 px-3 py-2 mb-4 text-[11px] text-[#33FF33] tracking-wider">
+          {message}
+        </div>
+      )}
+      {error && (
+        <div className="border border-red-500/30 bg-red-500/10 px-3 py-2 mb-4 text-[11px] text-red-500 tracking-wider">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {/* Email + Password side by side */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Email */}
+          <div className="border border-[#33FF33]/15 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">EMAIL</label>
+              <button onClick={() => startEdit("email")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
+            </div>
+            {editField === "email" ? (
+              <div className="flex gap-2 mt-1">
+                <input type="email" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} className="flex-1 bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33]" />
+                <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
+                <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
+              </div>
+            ) : (
+              <p className="text-[13px] text-white/80">{user.email}</p>
+            )}
+          </div>
+
+          {/* Password */}
+          <div className="border border-[#33FF33]/15 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">MOT DE PASSE</label>
+              <button onClick={() => startEdit("password")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
+            </div>
+            {editField === "password" ? (
+              <div className="space-y-2 mt-1">
+                <input type="password" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="NOUVEAU MOT DE PASSE" minLength={6} className="w-full bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
+                <input type="password" value={fieldConfirm} onChange={(e) => setFieldConfirm(e.target.value)} placeholder="CONFIRMER MOT DE PASSE" className="w-full bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
+                <div className="flex gap-2">
+                  <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
+                  <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[13px] text-white/40">••••••••</p>
+            )}
+          </div>
+        </div>
+
+        {/* Nom + Card Number side by side */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Nom */}
+          <div className="border border-[#33FF33]/15 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">NOM</label>
+              <button onClick={() => startEdit("name")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
+            </div>
+            {editField === "name" ? (
+              <div className="flex gap-2 mt-1">
+                <input type="text" value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="VOTRE NOM" className="flex-1 bg-black border border-[#33FF33]/30 text-[#33FF33] px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20" />
+                <button onClick={handleSave} disabled={saving} className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50">OK</button>
+                <button onClick={() => setEditField(null)} className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5">X</button>
+              </div>
+            ) : (
+              <p className="text-[13px] text-white/80">{user.user_metadata?.display_name || "---"}</p>
+            )}
+          </div>
+
+          {/* Card Number */}
+          <div className="border border-[#33FF33]/15 p-4">
+            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">CARD NUMBER</label>
+            <p className="text-[13px] text-white/80 font-mono tracking-[0.2em]">
+              {(() => {
+                const raw = user.user_metadata?.card_number
+                  || (user.id ? parseInt(user.id.replace(/[^a-f0-9]/g, "").slice(0, 8), 16).toString().padStart(9, "0").slice(0, 9) : "---");
+                return raw.replace(/\s/g, "").replace(/(.{3})/g, "$1 ").trim();
+              })()}
+            </p>
+          </div>
+        </div>
+
+        {/* Telegram */}
+        {user.user_metadata?.telegram_username && (
+          <div className="border border-[#33FF33]/15 p-4">
+            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">TELEGRAM</label>
+            <p className="text-[13px] text-white/80">@{user.user_metadata.telegram_username}</p>
+          </div>
+        )}
+
+        {/* Dates */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="border border-[#33FF33]/15 p-4">
+            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">MEMBRE DEPUIS</label>
+            <p className="text-[13px] text-white/80">
+              {user.created_at ? new Date(user.created_at).toLocaleDateString("fr-FR", { year: "numeric", month: "long", day: "numeric" }) : "---"}
+            </p>
+          </div>
+          <div className="border border-[#33FF33]/15 p-4">
+            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">DERNIERE CONNEXION</label>
+            <p className="text-[13px] text-white/80">
+              {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString("fr-FR") : "---"}
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
@@ -133,14 +312,22 @@ export default function Home() {
     lon: "---",
   });
   const [prices, setPrices] = useState<Prices>({ btc: null, xau: null, eurusd: null, spy: null });
-  const [announcement, setAnnouncement] = useState("ANNOUCEMENT / MESSAGE");
+  const [announcement, setAnnouncement] = useState("");
+  const [announcementScrolling, setAnnouncementScrolling] = useState(false);
+  const [announcementAlign, setAnnouncementAlign] = useState("center");
   const [menuItems, setMenuItems] = useState<MenuItem[]>(fallbackMenuItems);
   const [submenuItems, setSubmenuItems] = useState<SubmenuItem[]>(fallbackSubmenuItems);
   const [contentSections, setContentSections] = useState<ContentSection[]>([]);
   const [menuLabel, setMenuLabel] = useState("MENU");
+  const [menuLabelSize, setMenuLabelSize] = useState("9");
+  const [menuLabelColor, setMenuLabelColor] = useState("#FFFFFF80");
   const [submenuLabel, setSubmenuLabel] = useState("SUB MENU_");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [submenuLabelSize, setSubmenuLabelSize] = useState("13");
+  const [submenuLabelColor, setSubmenuLabelColor] = useState("#33FF33");
+  const [submenuLine, setSubmenuLine] = useState("LISTING  CATEGORIE  @");
+  const [submenuLineColor, setSubmenuLineColor] = useState("#FFFFFF80");
   const [activeModule, setActiveModule] = useState<string | null>(null);
+  const [splashDismissed, setSplashDismissed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -165,15 +352,24 @@ export default function Home() {
       supabase.from("site_settings").select("key, value"),
     ]);
 
-    if (annRes.data) setAnnouncement(annRes.data.message);
+    if (annRes.data) {
+      setAnnouncement(annRes.data.message);
+      setAnnouncementScrolling(annRes.data.is_scrolling ?? false);
+      setAnnouncementAlign(annRes.data.text_align ?? "center");
+    }
     if (menuRes.data) setMenuItems(menuRes.data);
     if (subRes.data) setSubmenuItems(subRes.data);
     if (contentRes.data) setContentSections(contentRes.data);
     if (settingsRes.data) {
-      const ml = settingsRes.data.find((s: { key: string; value: string }) => s.key === "menu_label");
-      if (ml) setMenuLabel(ml.value);
-      const sl = settingsRes.data.find((s: { key: string; value: string }) => s.key === "submenu_label");
-      if (sl) setSubmenuLabel(sl.value);
+      const g = (k: string) => settingsRes.data.find((s: { key: string; value: string }) => s.key === k)?.value;
+      if (g("menu_label")) setMenuLabel(g("menu_label")!);
+      if (g("menu_label_size")) setMenuLabelSize(g("menu_label_size")!);
+      if (g("menu_label_color")) setMenuLabelColor(g("menu_label_color")!);
+      if (g("submenu_label")) setSubmenuLabel(g("submenu_label")!);
+      if (g("submenu_label_size")) setSubmenuLabelSize(g("submenu_label_size")!);
+      if (g("submenu_label_color")) setSubmenuLabelColor(g("submenu_label_color")!);
+      if (g("submenu_line")) setSubmenuLine(g("submenu_line")!);
+      if (g("submenu_line_color")) setSubmenuLineColor(g("submenu_line_color")!);
     }
   }, [isSupabaseConfigured]);
 
@@ -183,6 +379,20 @@ export default function Home() {
     const id = setInterval(fetchData, 10000);
     return () => clearInterval(id);
   }, [fetchData]);
+
+  /* ─── Auto-show splash on first visit (per session) ─── */
+  useEffect(() => {
+    if (splashDismissed) return;
+    const seen = sessionStorage.getItem("hieros_splash_seen");
+    if (seen) {
+      setSplashDismissed(true);
+      return;
+    }
+    const splash = contentSections.find((c) => c.is_fullscreen);
+    if (splash && !activeModule) {
+      setActiveModule(splash.module_key);
+    }
+  }, [contentSections, splashDismissed, activeModule]);
 
   /* ─── Realtime subscriptions ─── */
   useEffect(() => {
@@ -379,8 +589,8 @@ export default function Home() {
         style={{ fontSize: item.font_size ? `${item.font_size}px` : undefined }}
         className={`inline-flex items-center gap-1 px-[8px] py-0.5 text-[10px] font-bold tracking-wider transition-colors border w-fit
           ${activeModule === item.code.toLowerCase()
-            ? "bg-[#FF8C00]/10 border-[#FF8C00]/30 text-[#FF8C00]"
-            : "bg-[#00FF00]/10 border-[#00FF00]/30 text-[#00FF00] hover:bg-[#00FF00]/20"
+            ? "bg-[#DF8301]/10 border-[#DF8301]/30 text-[#DF8301]"
+            : "bg-[#33FF33]/10 border-[#33FF33]/30 text-[#33FF33] hover:bg-[#33FF33]/20"
           }`}
       >
         {item.code}
@@ -396,14 +606,15 @@ export default function Home() {
     return (
       <div key={item.id}>
         <div
-          className="flex justify-between py-0.5 hover:bg-[#00FF00]/5 px-1 cursor-default"
+          onClick={!isParent ? () => setActiveModule(item.code.toLowerCase()) : undefined}
+          className={`flex justify-between py-0.5 hover:bg-[#33FF33]/5 px-1 ${isParent ? "cursor-default" : "cursor-pointer"}`}
           style={{ paddingLeft: `${depth * 8 + 4}px` }}
         >
-          <span className={`text-[12px] ${isParent ? "text-[#00FF00]/90 font-bold" : "text-[#00FF00]/70"}`}>
-            {depth > 0 && <span className="text-[#00FF00]/20 mr-1">{"\u2514"}</span>}
+          <span className={`text-[12px] ${isParent ? "text-[#33FF33]/90 font-bold" : "text-white/70"}`}>
+            {depth > 0 && <span className="text-[#33FF33]/20 mr-1">{"\u2514"}</span>}
             {item.label}
           </span>
-          <span className="text-[#00FF00]/40 text-[12px]">{item.ref}</span>
+          <span className="text-[#33FF33]/30 text-[10px]">{item.ref}</span>
         </div>
         {children.map((child) => renderSubmenuNode(child, depth + 1))}
       </div>
@@ -412,12 +623,51 @@ export default function Home() {
 
   const rootSubmenuItems = submenuTree.get(null) || [];
 
+  /* ─── Fullscreen splash overlay ─── */
+  if (activeContent?.is_fullscreen) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col overflow-hidden"
+        style={{ backgroundColor: activeContent.bg_color || '#000000' }}
+      >
+        {/* Close / Enter button */}
+        <button
+          onClick={() => { setActiveModule(null); setSplashDismissed(true); sessionStorage.setItem("hieros_splash_seen", "1"); }}
+          className="absolute top-4 right-4 z-10 border border-white/20 text-white/60 px-4 py-1.5 text-[10px] tracking-widest hover:bg-white/10 hover:text-white transition-colors uppercase"
+        >
+          ENTER
+        </button>
+
+        {/* Fullscreen content */}
+        <div className="flex-1 overflow-y-auto" style={{ display: "flex" }}>
+          <div className="flex flex-col items-center justify-center w-full p-6 m-auto">
+            {activeContent.title && (
+              <div className="text-center pb-4">
+                <h1
+                  className="font-marsek text-2xl tracking-[0.3em]"
+                  style={{ color: activeContent.title_color || '#DF8301' }}
+                >
+                  {activeContent.title}
+                </h1>
+              </div>
+            )}
+            <CarouselRenderer
+              html={activeContent.body}
+              className="rich-content w-full"
+              style={{ color: activeContent.body_color || '#FFFFFF', textAlign: 'center' }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-black text-white font-terminal flex flex-col overflow-hidden select-none">
       {/* ════════════════════ TOP HEADER ════════════════════ */}
-      <header className="flex border-b border-[#00FF00]/20">
+      <header className="flex border-b border-[#33FF33]/20">
         {/* Left section */}
-        <div className="w-[200px] min-w-[200px] flex items-center justify-center px-3 py-2 border-r border-[#00FF00]/20">
+        <div className="w-[200px] min-w-[200px] flex items-center justify-center px-3 py-2 border-r border-[#33FF33]/20">
           <a href="/">
             <Image
               src="/hieros-logo.jpg"
@@ -431,11 +681,21 @@ export default function Home() {
         </div>
 
         {/* Center section */}
-        <div className="flex-1 flex items-center p-0 border-r border-[#00FF00]/20">
-          <div className="flex-1 border border-[#00FF00]/30 px-3 py-1 m-3">
-            <span className="text-[11px] text-white/70 tracking-widest">
-              {announcement}
-            </span>
+        <div className="flex-1 flex items-center p-0 border-r border-[#33FF33]/20">
+          <div className="flex-1 border border-[#33FF33]/15 px-3 py-1 m-3 overflow-hidden min-h-[24px]">
+            {announcement && (
+              announcementScrolling ? (
+                <div className="marquee-container">
+                  <span className="marquee-text text-[11px] text-white/70 tracking-widest whitespace-nowrap">
+                    {announcement}
+                  </span>
+                </div>
+              ) : (
+                <span className={`text-[11px] text-white/70 tracking-widest block text-${announcementAlign}`}>
+                  {announcement}
+                </span>
+              )
+            )}
           </div>
         </div>
 
@@ -443,42 +703,45 @@ export default function Home() {
         <div className="w-[200px] min-w-[200px] px-3 py-2 flex items-center justify-end">
           {user ? (
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-[#00FF00] truncate max-w-[120px]">
-                {user.user_metadata?.display_name || user.user_metadata?.telegram_username || user.email}
-              </span>
+              <button
+                onClick={() => setActiveModule("account")}
+                className="text-[11px] text-white hover:text-[#DF8301] cursor-pointer tracking-wider transition-colors"
+              >
+                ACCOUNT
+              </button>
               <button
                 onClick={handleLogout}
-                className="border border-red-500/40 text-red-500 px-2 py-0.5 text-[9px] hover:bg-red-500/10 transition-colors shrink-0"
+                className="border border-red-500/40 text-red-500 px-2 py-0.5 text-[11px] hover:bg-red-500/30 transition-colors shrink-0 tracking-wider"
               >
-                OUT
+                CHECK OUT
               </button>
             </div>
           ) : (
             <button
               onClick={() => setActiveModule("login")}
-              className="text-[11px] text-white hover:text-[#FF8C00] cursor-pointer tracking-wider"
+              className="text-[11px] text-white hover:text-[#DF8301] cursor-pointer tracking-wider"
             >
-              LOGIN / SIGN UP
+              &gt; CHECK IN
             </button>
           )}
         </div>
       </header>
 
       {/* ════════════════════ SUB HEADER — TICKER ════════════════════ */}
-      <div className="flex border-b border-[#00FF00]/20">
-        <div className="w-[200px] min-w-[200px] border-r border-[#00FF00]/20" />
+      <div className="flex border-b border-[#33FF33]/20">
+        <div className="w-[200px] min-w-[200px] border-r border-[#33FF33]/20" />
 
-        <div className="flex-1 flex items-center justify-center py-1 border-r border-[#00FF00]/20 text-[13px] tracking-wider">
-          <span className="text-[#00FF00]">BTC </span>
+        <div className="flex-1 flex items-center justify-center py-1 border-r border-[#33FF33]/20 text-[13px] tracking-wider">
+          <span className="text-[#33FF33]">BTC </span>
           <span className="text-white font-bold ml-1">{prices.btc?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ?? "---"}</span>
           <span className="text-white/40 mx-2">—</span>
-          <span className="text-[#00FF00]">XAU </span>
+          <span className="text-[#33FF33]">XAU </span>
           <span className="text-white font-bold ml-1">{prices.xau?.toFixed(2) ?? "---"}</span>
           <span className="text-white/40 mx-2">—</span>
-          <span className="text-[#00FF00]">EUR/USD </span>
+          <span className="text-[#33FF33]">EUR/USD </span>
           <span className="text-white font-bold ml-1">{prices.eurusd?.toFixed(4) ?? "---"}</span>
           <span className="text-white/40 mx-2">—</span>
-          <span className="text-[#00FF00]">SPY </span>
+          <span className="text-[#33FF33]">SPY </span>
           <span className="text-white font-bold ml-1">{prices.spy?.toFixed(2) ?? "---"}</span>
         </div>
 
@@ -488,23 +751,23 @@ export default function Home() {
       {/* ════════════════════ MAIN 3-COL LAYOUT ════════════════════ */}
       <div className="flex flex-1 overflow-hidden">
         {/* ──────── LEFT COLUMN ──────── */}
-        <aside className="w-[200px] min-w-[200px] border-r border-[#00FF00]/20 flex flex-col">
+        <aside className="w-[200px] min-w-[200px] border-r border-[#33FF33]/20 flex flex-col">
           {/* Info blocs GMT / YMD / GPS / IPV */}
           <div className="p-3 space-y-1 text-[12px]">
             <div className="flex items-center">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#33FF33]/10 border border-[#33FF33]/30 px-2 py-0.5 text-[12px] text-[#33FF33] font-bold w-[36px] text-center shrink-0">
                 GMT
               </span>
               <span className="text-white/80 ml-2">{time}</span>
             </div>
             <div className="flex items-center">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#33FF33]/10 border border-[#33FF33]/30 px-2 py-0.5 text-[12px] text-[#33FF33] font-bold w-[36px] text-center shrink-0">
                 YMD
               </span>
               <span className="text-white/80 ml-2">{date}</span>
             </div>
             <div className="flex items-start">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#33FF33]/10 border border-[#33FF33]/30 px-2 py-0.5 text-[12px] text-[#33FF33] font-bold w-[36px] text-center shrink-0">
                 GPS
               </span>
               <span className="text-white/80 text-[12px] leading-tight ml-2">
@@ -514,18 +777,18 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center">
-              <span className="bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[12px] text-[#00FF00] font-bold w-[36px] text-center shrink-0">
+              <span className="bg-[#33FF33]/10 border border-[#33FF33]/30 px-2 py-0.5 text-[12px] text-[#33FF33] font-bold w-[36px] text-center shrink-0">
                 IPV
               </span>
               <span className="text-white/80 text-[12px] ml-2">{visitor.ip}</span>
             </div>
           </div>
 
-          <div className="border-t border-[#00FF00]/15 mx-3" />
+          <div className="border-t border-[#33FF33]/15 mx-3" />
 
           {/* MENU label */}
           <div className="px-3 pt-3 pb-0">
-            <p className="text-[9px] text-white/50 leading-tight">
+            <p className="leading-tight" style={{ fontSize: `${menuLabelSize}px`, color: menuLabelColor }}>
               {menuLabel}
             </p>
           </div>
@@ -537,12 +800,12 @@ export default function Home() {
         </aside>
 
         {/* ──────── CENTER CONTENT ──────── */}
-        <main className="flex-1 border-r border-[#00FF00]/20 flex flex-col overflow-hidden">
-          <div className="flex-1 p-3 flex items-center justify-center">
-            <div className="border border-[#00FF00]/15 w-full h-full flex items-center justify-center overflow-y-auto">
+        <main className="flex-1 border-r border-[#33FF33]/20 flex flex-col overflow-hidden">
+          <div className="flex-1 p-3 flex items-center justify-center min-h-0">
+            <div className={`border border-[#33FF33]/15 w-full h-full overflow-y-auto ${activeContent ? "flex flex-col items-stretch" : "flex items-center justify-center"}`}>
               {activeModule === "login" && !user ? (
                 <div className="w-[380px] p-6">
-                  <h2 className="font-marsek text-lg text-[#00FF00] mb-6 tracking-widest text-center">
+                  <h2 className="font-marsek text-lg text-[#33FF33] mb-6 tracking-widest text-center">
                     {authMode === "login" ? "CONNEXION" : "INSCRIPTION"}
                   </h2>
 
@@ -554,7 +817,7 @@ export default function Home() {
                       onChange={(e) => setAuthEmail(e.target.value)}
                       placeholder="EMAIL"
                       required
-                      className="w-full bg-black border border-[#00FF00]/40 text-[#00FF00] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#00FF00] placeholder:text-[#00FF00]/30"
+                      className="w-full bg-black border border-[#33FF33]/40 text-[#33FF33] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/30"
                     />
                     <input
                       type="password"
@@ -563,7 +826,7 @@ export default function Home() {
                       placeholder="MOT DE PASSE"
                       required
                       minLength={6}
-                      className="w-full bg-black border border-[#00FF00]/40 text-[#00FF00] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#00FF00] placeholder:text-[#00FF00]/30"
+                      className="w-full bg-black border border-[#33FF33]/40 text-[#33FF33] px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/30"
                     />
                     {authError && (
                       <p className="text-red-500 text-xs uppercase">{authError}</p>
@@ -571,7 +834,7 @@ export default function Home() {
                     <button
                       type="submit"
                       disabled={authLoading}
-                      className="w-full bg-[#00FF00]/10 border border-[#00FF00]/40 text-[#00FF00] py-2 text-sm uppercase tracking-wider hover:bg-[#00FF00]/20 transition-colors disabled:opacity-50"
+                      className="w-full bg-[#33FF33]/10 border border-[#33FF33]/40 text-[#33FF33] py-2 text-sm uppercase tracking-wider hover:bg-[#33FF33]/20 transition-colors disabled:opacity-50"
                     >
                       {authLoading ? "CHARGEMENT..." : authMode === "login" ? "CONNEXION" : "CRÉER UN COMPTE"}
                     </button>
@@ -579,9 +842,9 @@ export default function Home() {
 
                   {/* Separator */}
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="flex-1 border-t border-[#00FF00]/20" />
-                    <span className="text-[#00FF00]/40 text-[10px] tracking-widest">OU</span>
-                    <div className="flex-1 border-t border-[#00FF00]/20" />
+                    <div className="flex-1 border-t border-[#33FF33]/20" />
+                    <span className="text-[#33FF33]/40 text-[10px] tracking-widest">OU</span>
+                    <div className="flex-1 border-t border-[#33FF33]/20" />
                   </div>
 
                   {/* Telegram Widget */}
@@ -591,20 +854,33 @@ export default function Home() {
                   <div className="text-center">
                     <button
                       onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-                      className="text-[#FF8C00] text-[11px] tracking-wider hover:text-[#FF8C00]/80 transition-colors"
+                      className="text-[#DF8301] text-[11px] tracking-wider hover:text-[#DF8301]/80 transition-colors"
                     >
                       {authMode === "login" ? "PAS DE COMPTE ? INSCRIPTION" : "DÉJÀ UN COMPTE ? CONNEXION"}
                     </button>
                   </div>
                 </div>
+              ) : activeModule === "account" && user ? (
+                <AccountPanel user={user} setUser={setUser} onLogout={handleLogout} onClose={() => setActiveModule(null)} />
+              ) : activeModule === "telegram" && user ? (
+                <TelegramChat user={user} />
               ) : activeContent ? (
                 <div className="w-full h-full overflow-y-auto p-6">
-                  <h2 className="font-marsek text-lg text-[#FF8C00] mb-4 tracking-widest text-center">
-                    &#9654; {activeContent.title}
-                  </h2>
-                  <div
+                  <div className="flex items-baseline justify-between mb-4">
+                    <h2
+                      className="font-marsek text-lg tracking-widest"
+                      style={{ color: activeContent.title_color || '#DF8301' }}
+                    >
+                      / {activeContent.title}
+                    </h2>
+                    <span className="text-[10px] text-white/30 tracking-wider shrink-0 ml-4">
+                      {submenuItems.find(s => s.code.toLowerCase() === activeContent.module_key)?.ref || activeContent.module_key.toUpperCase()}
+                    </span>
+                  </div>
+                  <CarouselRenderer
+                    html={activeContent.body}
                     className="rich-content"
-                    dangerouslySetInnerHTML={{ __html: activeContent.body }}
+                    style={{ color: activeContent.body_color || '#FFFFFF' }}
                   />
                 </div>
               ) : (
@@ -625,49 +901,26 @@ export default function Home() {
         <aside className="w-[200px] min-w-[200px] flex flex-col">
           {/* SUB MENU header */}
           <div className="px-3 pt-3 pb-3">
-            <h3 className="font-marsek text-[13px] text-[#00FF00] tracking-widest">
+            <h3 className="font-marsek tracking-widest" style={{ fontSize: `${submenuLabelSize}px`, color: submenuLabelColor }}>
               {submenuLabel}
             </h3>
-            {rootSubmenuItems.length > 0 && (
-              <div className="flex gap-3 mt-1 text-[10px]">
-                {rootSubmenuItems.map((cat) => (
-                  <span
-                    key={cat.id}
-                    onClick={() => setActiveCategory(activeCategory === cat.id ? null : cat.id)}
-                    className={`cursor-pointer transition-colors ${
-                      activeCategory === cat.id
-                        ? "text-[#FF8C00]"
-                        : "text-[#00FF00]/80 hover:text-[#FF8C00]"
-                    }`}
-                  >
-                    {cat.code}
-                  </span>
-                ))}
-              </div>
-            )}
+            <div className="mt-1 text-[10px]" style={{ color: submenuLineColor }}>
+              {submenuLine}
+            </div>
           </div>
 
-          <div className="border-t border-[#00FF00]/15 mx-3" />
+          <div className="border-t border-[#33FF33]/15 mx-3" />
 
-          {/* Submenu items for active category */}
-          <div className="flex-1 px-3 py-2 overflow-y-auto space-y-0">
-            {activeCategory ? (
-              (submenuTree.get(activeCategory) || []).map((item) => (
-                <div key={item.id} className="flex justify-between py-0.5 hover:bg-[#00FF00]/5 px-1 cursor-default">
-                  <span className="text-[12px] text-[#00FF00]/70">{item.label}</span>
-                  <span className="text-[#00FF00]/40 text-[12px]">{item.ref}</span>
-                </div>
-              ))
-            ) : (
-              rootSubmenuItems.map((item) => renderSubmenuNode(item, 0))
-            )}
+          {/* Submenu tree — all categories + children */}
+          <div className="flex-1 px-3 py-3 overflow-y-auto space-y-0">
+            {rootSubmenuItems.map((item) => renderSubmenuNode(item, 0))}
           </div>
 
-          <div className="border-t border-[#00FF00]/15 mx-3" />
+          <div className="border-t border-[#33FF33]/15 mx-3" />
 
           {/* SEND + PAYMENT */}
-          <div className="px-3 py-2 flex items-center justify-between">
-            <div className="border border-[#FF8C00]/60 px-3 py-1 text-[10px] text-[#FF8C00] hover:bg-[#FF8C00]/10 cursor-pointer tracking-wider">
+          <div className="px-3 py-3 flex items-center justify-between">
+            <div className="border border-[#DF8301]/60 px-3 py-1 text-[10px] text-[#DF8301] hover:bg-[#DF8301]/10 cursor-pointer tracking-wider">
               SEND
             </div>
             <span className="text-[10px] text-white/60 tracking-wider">
@@ -678,7 +931,7 @@ export default function Home() {
       </div>
 
       {/* ════════════════════ FOOTER ════════════════════ */}
-      <footer className="border-t border-[#00FF00]/20 px-3 py-2 flex items-center justify-between text-[10px]">
+      <footer className="border-t border-[#33FF33]/20 px-3 py-2 flex items-center justify-between text-[10px]">
         <div className="flex items-center gap-4">
           <span className="text-white/80 font-bold">FEB 17</span>
           <span className="text-white/80 font-bold">MAR 03</span>
