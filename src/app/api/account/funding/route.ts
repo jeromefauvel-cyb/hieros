@@ -71,8 +71,19 @@ export async function POST(req: NextRequest) {
     const cleanCurrency = String(currency || "USDT").slice(0, 10);
     const cleanNote = String(note || "").slice(0, 200);
 
+    // Resolve recipient by card number
+    const { data: allUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const cleanCardDigits = cleanCard.replace(/\D/g, "");
+    const toUser = allUsers?.users.find((u) => {
+      const userCard = (u.user_metadata?.card_number || "").replace(/\D/g, "");
+      if (userCard && userCard === cleanCardDigits) return true;
+      const autoCard = parseInt(u.id.replace(/[^a-f0-9]/g, "").slice(0, 8), 16).toString().padStart(9, "0").slice(0, 9);
+      return autoCard === cleanCardDigits;
+    });
+
     const { data, error } = await supabaseAdmin.from("payment_requests").insert({
       from_user_id,
+      to_user_id: toUser?.id || null,
       to_card_number: cleanCard,
       amount: cleanAmount,
       currency: cleanCurrency,
@@ -81,19 +92,32 @@ export async function POST(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Notify admin via Telegram
+    const { data: fromUserData } = await supabaseAdmin.auth.admin.getUserById(from_user_id);
+    const fromUsername = fromUserData?.user?.user_metadata?.telegram_username || fromUserData?.user?.email || "Unknown";
+    const fromCard = fromUserData?.user?.user_metadata?.card_number || "N/A";
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+
+    // Notify admin via Telegram
     if (token && adminChatId) {
-      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(from_user_id);
-      const username = userData?.user?.user_metadata?.telegram_username || userData?.user?.email || "Unknown";
-      const cardFrom = userData?.user?.user_metadata?.card_number || "N/A";
       await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: adminChatId,
-          text: `DEMANDE DE PAIEMENT\nDE: @${username} (${cardFrom})\nVERS: ${cleanCard}\nMONTANT: ${cleanAmount} ${cleanCurrency}\nNOTE: ${cleanNote || "-"}\nID: ${data.id}`,
+          text: `DEMANDE DE PAIEMENT\nDE: @${fromUsername} (${fromCard})\nVERS: ${cleanCard}\nMONTANT: ${cleanAmount} ${cleanCurrency}\nNOTE: ${cleanNote || "-"}\nID: ${data.id}`,
+        }),
+      });
+    }
+
+    // Notify recipient via Telegram
+    if (token && toUser?.user_metadata?.telegram_id) {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: toUser.user_metadata.telegram_id,
+          text: `DEMANDE DE PAIEMENT RECU\nDE: @${fromUsername}\nMONTANT: ${cleanAmount} ${cleanCurrency}\nNOTE: ${cleanNote || "-"}`,
         }),
       });
     }

@@ -609,6 +609,53 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
   );
 }
 
+/* ─── Notifications Section ─── */
+function NotificationsSection({ userId }: { userId: string }) {
+  const [notifications, setNotifications] = useState<{ id: string; from_name: string; from_card: string; amount: number; currency: string; note: string; status: string; created_at: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/account/notifications?user_id=${userId}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setNotifications)
+      .catch(() => {});
+  }, [userId]);
+
+  if (notifications.length === 0) return null;
+
+  const statusColor = (s: string) => {
+    if (s === "completed") return "text-[#33FF33]";
+    if (s === "approved") return "text-[#33FF33]/70";
+    if (s === "rejected") return "text-red-500";
+    return "text-[#DF8301]";
+  };
+
+  return (
+    <div className="border border-[#33FF33]/15 p-4">
+      <label className="text-[12px] text-[#33FF33]/50 block mb-3 tracking-wider">NOTIFICATIONS</label>
+      <div className="space-y-2">
+        {notifications.map((n) => (
+          <div key={n.id} className="border border-[#33FF33]/10 p-3 flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <span className={`text-[10px] px-2 py-0.5 border ${statusColor(n.status)} border-current/30`}>
+                  {n.status === "pending" ? "PENDING" : n.status === "approved" ? "APPROVED" : n.status === "completed" ? "COMPLETED" : "REJECTED"}
+                </span>
+                <span className="text-[12px] text-white/80 font-bold">{n.amount} {n.currency}</span>
+                <span className="text-[10px] text-white/40">DE {n.from_name}</span>
+                {n.from_card && <span className="text-[10px] text-white/30 font-mono">{n.from_card.replace(/\s/g, "").replace(/(.{3})/g, "$1 ").trim()}</span>}
+              </div>
+              {n.note && <p className="text-[10px] text-white/30 mt-1">{n.note}</p>}
+            </div>
+            <span className="text-[9px] text-white/20 shrink-0 ml-3">
+              {new Date(n.created_at).toLocaleDateString("fr-FR")}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Account Panel ─── */
 function AccountPanel({ user, setUser }: {
   user: User;
@@ -829,6 +876,9 @@ function AccountPanel({ user, setUser }: {
 
         {/* FUNDING */}
         <FundingSection user={user} setUser={setUser} />
+
+        {/* NOTIFICATIONS */}
+        <NotificationsSection userId={user.id} />
 
       </div>
     </div>

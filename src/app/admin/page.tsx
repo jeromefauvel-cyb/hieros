@@ -598,13 +598,32 @@ export default function AdminPage() {
                     <div className="grid grid-cols-3 gap-3">
                       {viewWallets.wallets.map((w, i) => (
                         <div key={i} className="border border-[#33FF33]/15 p-2">
-                          <div className="flex gap-1 mb-1">
-                            <span className="text-[9px] text-[#DF8301] border border-[#DF8301]/30 px-1.5 py-0.5 flex-1 text-center">{w.label}</span>
-                            {w.chain && <span className="text-[9px] text-white/40 border border-white/15 px-1.5 py-0.5 flex-1 text-center">{w.chain}</span>}
+                          <div className="flex gap-1 mb-2">
+                            <span className="text-[15px] text-[#DF8301] border border-[#DF8301]/30 px-2 py-0.5 flex-1 text-center font-bold">{w.label}</span>
+                            {w.chain && <span className="text-[15px] text-white/40 border border-white/15 px-2 py-0.5 flex-1 text-center">{w.chain}</span>}
                           </div>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {w.url && <img src={w.url} alt={w.label} className="w-full object-contain mb-1" />}
-                          {w.address && <p className="text-[8px] text-white/40 font-mono break-all">{w.address}</p>}
+                          {w.url && <img src={w.url} alt={w.label} className="w-full object-contain mb-2" />}
+                          {w.address && (
+                            <div className="flex items-start gap-1.5">
+                              <p className="text-[15px] text-white/50 font-mono break-all flex-1 select-text">{w.address}</p>
+                              <button
+                                onClick={(e) => {
+                                  navigator.clipboard.writeText(w.address);
+                                  const btn = e.currentTarget;
+                                  btn.textContent = "COPIED";
+                                  setTimeout(() => { btn.textContent = ""; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>'; }, 2000);
+                                }}
+                                className="text-white/30 hover:text-[#33FF33] transition-colors shrink-0 mt-1"
+                                title="COPIER"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
