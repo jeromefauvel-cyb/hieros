@@ -8,7 +8,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing user_id or telegram_username" }, { status: 400 });
     }
 
-    const username = telegram_username.replace(/^@/, "").trim();
+    // Sanitize username: alphanumeric and underscores only
+    const username = telegram_username.replace(/^@/, "").replace(/[^a-zA-Z0-9_]/g, "").trim();
     if (!username) {
       return NextResponse.json({ error: "Invalid username" }, { status: 400 });
     }

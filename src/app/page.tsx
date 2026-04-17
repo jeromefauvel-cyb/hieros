@@ -135,16 +135,25 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [qrUploading, setQrUploading] = useState(false);
   const [qrLabel, setQrLabel] = useState("USDT");
+  const [qrAddress, setQrAddress] = useState("");
+  const [qrChain, setQrChain] = useState("TRC20");
+  const [qrPopup, setQrPopup] = useState<string | null>(null);
+  const [editingQr, setEditingQr] = useState<number | null>(null);
+  const [copiedAddr, setCopiedAddr] = useState<number | null>(null);
   const [payTo, setPayTo] = useState("");
   const [payAmount, setPayAmount] = useState("");
   const [payCurrency, setPayCurrency] = useState("USDT");
   const [payNote, setPayNote] = useState("");
   const [paySending, setPaySending] = useState(false);
   const [payMessage, setPayMessage] = useState("");
+  const [payConfirm, setPayConfirm] = useState(false);
+  const [payConfirmNote, setPayConfirmNote] = useState("");
+  const [recipientWallets, setRecipientWallets] = useState<{ label: string; url?: string; address?: string; chain?: string }[]>([]);
+  const [recipientName, setRecipientName] = useState("");
   const [requests, setRequests] = useState<{ id: string; to_card_number: string; amount: number; currency: string; status: string; created_at: string; note: string }[]>([]);
   const qrInputRef = useRef<HTMLInputElement>(null);
 
-  const qrCodes: { label: string; url: string }[] = user.user_metadata?.qr_codes || [];
+  const qrCodes: { label: string; url: string; address?: string; chain?: string }[] = user.user_metadata?.qr_codes || [];
 
   const fetchRequests = useCallback(async () => {
     const res = await fetch(`/api/account/funding?user_id=${user.id}`);
@@ -152,6 +161,26 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
   }, [user.id]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  // Lookup recipient wallets when card number is complete
+  useEffect(() => {
+    const clean = payTo.replace(/\s/g, "");
+    if (clean.length === 9) {
+      fetch(`/api/account/lookup?card=${clean}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => {
+          if (d) {
+            setRecipientWallets(d.qr_codes || []);
+            setRecipientName(d.display_name || "");
+          }
+        })
+        .catch(() => {});
+    } else {
+      setRecipientWallets([]);
+      setRecipientName("");
+      setPayNote("");
+    }
+  }, [payTo]);
 
   const handleQrUpload = async () => {
     if (!qrFile || !qrLabel.trim()) return;
@@ -161,7 +190,7 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
     const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
     if (res.ok) {
       const { url } = await res.json();
-      const updated = [...qrCodes, { label: qrLabel.trim(), url }];
+      const updated = [...qrCodes, { label: qrLabel.trim(), url, address: qrAddress.trim(), chain: qrChain }];
       await fetch("/api/account/funding", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -171,8 +200,36 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
       if (data.user) setUser(data.user);
       setQrFile(null);
       setQrLabel("USDT");
+      setQrAddress("");
+      setQrChain("TRC20");
     }
     setQrUploading(false);
+  };
+
+  const startEditQr = (index: number) => {
+    const qr = qrCodes[index];
+    setEditingQr(index);
+    setQrLabel(qr.label);
+    setQrAddress(qr.address || "");
+    setQrChain(qr.chain || "TRC20");
+    setQrFile(null);
+  };
+
+  const saveEditQr = async () => {
+    if (editingQr === null) return;
+    const updated = [...qrCodes];
+    updated[editingQr] = { ...updated[editingQr], label: qrLabel.trim(), address: qrAddress.trim(), chain: qrChain };
+    await fetch("/api/account/funding", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: user.id, qr_codes: updated }),
+    });
+    const { data } = await supabase.auth.getUser();
+    if (data.user) setUser(data.user);
+    setEditingQr(null);
+    setQrLabel("USDT");
+    setQrAddress("");
+    setQrChain("TRC20");
   };
 
   const removeQr = async (index: number) => {
@@ -186,21 +243,29 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
     if (data.user) setUser(data.user);
   };
 
-  const handlePayRequest = async (e: React.FormEvent) => {
+  const handlePayRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!payTo.trim() || !payAmount) return;
+    setPayConfirmNote("");
+    setPayConfirm(true);
+  };
+
+  const handlePayConfirm = async () => {
     setPaySending(true);
     setPayMessage("");
+    setPayConfirm(false);
     const res = await fetch("/api/account/funding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from_user_id: user.id, to_card_number: payTo.trim(), amount: parseFloat(payAmount), currency: payCurrency, note: payNote }),
+      body: JSON.stringify({ from_user_id: user.id, to_card_number: payTo.trim(), amount: parseFloat(payAmount), currency: payCurrency, note: `${payNote}${payConfirmNote ? " | " + payConfirmNote : ""}` }),
     });
     if (res.ok) {
-      setPayMessage("DEMANDE ENVOYEE");
+      setPayMessage("REQUEST SENT");
       setPayTo("");
       setPayAmount("");
       setPayNote("");
+      setRecipientWallets([]);
+      setRecipientName("");
       fetchRequests();
     }
     setPaySending(false);
@@ -215,103 +280,302 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
 
   return (
     <div className="border border-[#33FF33]/15 p-4">
-      <label className="text-[9px] text-[#33FF33]/50 block mb-3 tracking-wider">FUNDING</label>
+      {/* Payment Confirmation Popup */}
+      {payConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center" onClick={() => setPayConfirm(false)}>
+          <div className="border border-[#33FF33]/30 bg-black p-6 max-w-[400px] w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[#DF8301] text-sm tracking-widest mb-4 font-bold">CONFIRM SEND REQUEST</h3>
+            <div className="space-y-3 mb-5">
+              <div className="flex justify-between border-b border-[#33FF33]/10 pb-2">
+                <span className="text-[11px] text-white/40">TO</span>
+                <span className="text-[11px] text-white font-mono tracking-[0.15em]">{payTo}</span>
+              </div>
+              {recipientName && (
+                <div className="flex justify-between border-b border-[#33FF33]/10 pb-2">
+                  <span className="text-[11px] text-white/40">RECIPIENT</span>
+                  <span className="text-[11px] text-white">{recipientName}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-b border-[#33FF33]/10 pb-2">
+                <span className="text-[11px] text-white/40">AMOUNT</span>
+                <span className="text-[11px] text-white font-bold">{payAmount} {payCurrency}</span>
+              </div>
+              {payNote && (() => {
+                const selectedWallet = recipientWallets.find((qr) => qr.address === payNote);
+                return (
+                  <>
+                    <div className="flex justify-between border-b border-[#33FF33]/10 pb-2">
+                      <span className="text-[11px] text-white/40">WALLET</span>
+                      <span className="text-[11px] text-white/70 font-mono text-right max-w-[250px] break-all">{payNote}</span>
+                    </div>
+                    {selectedWallet && (
+                      <div className="flex gap-2 border-b border-[#33FF33]/10 pb-2">
+                        <span className="text-[10px] text-[#DF8301] border border-[#DF8301]/30 px-2 py-0.5 flex-1 text-center">{selectedWallet.label}</span>
+                        {selectedWallet.chain && <span className="text-[10px] text-white/50 border border-white/15 px-2 py-0.5 flex-1 text-center">{selectedWallet.chain}</span>}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              <div>
+                <span className="text-[11px] text-white/40">NOTE</span>
+                <input
+                  type="text"
+                  value={payConfirmNote}
+                  onChange={(e) => setPayConfirmNote(e.target.value)}
+                  placeholder="NOTE (OPTIONNEL)"
+                  className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-white/30 mt-1"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end mt-4">
+              <button
+                onClick={() => setPayConfirm(false)}
+                className="border border-white/20 text-white/50 px-4 py-1.5 text-[10px] hover:bg-white/5 transition-colors tracking-wider"
+              >CANCEL</button>
+              <button
+                onClick={handlePayConfirm}
+                disabled={paySending}
+                className="border border-[#33FF33]/40 text-[#33FF33] px-4 py-1.5 text-[10px] hover:bg-[#33FF33]/10 transition-colors tracking-wider disabled:opacity-50 font-bold"
+              >
+                {paySending ? "..." : "CONFIRM"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Popup */}
+      {qrPopup && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-pointer"
+          onClick={() => setQrPopup(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrPopup} alt="QR" className="max-w-[80vw] max-h-[80vh] object-contain" />
+        </div>
+      )}
+      <label className="text-[12px] text-[#33FF33]/50 block mb-3 tracking-wider">FUNDING</label>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* QR Codes */}
+        {/* QR Codes / Wallets */}
         <div>
-          <label className="text-[9px] text-white/40 block mb-2 tracking-wider">MES QR CODES</label>
+          <label className="text-[12px] text-white/40 block mb-2 tracking-wider">MES WALLETS</label>
           {qrCodes.length > 0 && (
-            <div className="flex gap-2 flex-wrap mb-3">
-              {qrCodes.map((qr, i) => (
-                <div key={i} className="border border-[#33FF33]/15 p-2 group relative">
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              {qrCodes.map((qr: { label: string; url: string; address?: string; chain?: string }, i: number) => (
+                <div key={i} className="border border-[#33FF33]/15 p-3 group relative">
+                  {/* Labels above QR */}
+                  <div className="flex gap-1 mb-2">
+                    <span className="text-[11px] text-[#DF8301] font-bold border border-[#DF8301]/30 px-2 py-0.5 flex-1 text-center">{qr.label}</span>
+                    {qr.chain && <span className="text-[11px] text-white/50 border border-white/15 px-2 py-0.5 flex-1 text-center">{qr.chain}</span>}
+                  </div>
+                  {/* QR Image */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qr.url} alt={qr.label} className="w-20 h-20 object-contain" />
-                  <p className="text-[8px] text-white/50 text-center mt-1">{qr.label}</p>
-                  <button
-                    onClick={() => removeQr(i)}
-                    className="absolute -top-1 -right-1 bg-red-500 text-black text-[8px] w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >X</button>
+                  <img
+                    src={qr.url}
+                    alt={qr.label}
+                    className="w-full object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setQrPopup(qr.url)}
+                  />
+                  {/* Address below QR */}
+                  {qr.address && (
+                    <div className="flex items-start gap-1.5 mt-2">
+                      <p className="text-[12px] text-white/60 font-mono break-all select-text flex-1">{qr.address}</p>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(qr.address || ""); setCopiedAddr(i); setTimeout(() => setCopiedAddr(null), 2000); }}
+                        title="COPIER"
+                        className={`shrink-0 mt-0.5 transition-colors ${copiedAddr === i ? "text-[#33FF33]" : "text-white/30 hover:text-[#33FF33]"}`}
+                      >
+                        {copiedAddr === i ? (
+                          <span className="text-[9px] tracking-wider">COPIED</span>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                  {/* Edit/Delete overlay */}
+                  <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => startEditQr(i)} className="bg-black/70 text-[#DF8301] text-[8px] px-1.5 py-0.5 hover:bg-black">EDIT</button>
+                    <button onClick={() => removeQr(i)} className="bg-black/70 text-red-500 text-[8px] px-1.5 py-0.5 hover:bg-black">X</button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-          <div className="flex gap-2 items-center">
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <select value={qrLabel} onChange={(e) => setQrLabel(e.target.value)} className="bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33]">
+                <option value="USDT">USDT</option>
+                <option value="USDC">USDC</option>
+                <option value="BTC">BTC</option>
+                <option value="ETH">ETH</option>
+                <option value="BNB">BNB</option>
+                <option value="SOL">SOL</option>
+                <option value="XRP">XRP</option>
+                <option value="DOGE">DOGE</option>
+                <option value="LTC">LTC</option>
+                <option value="MATIC">MATIC</option>
+                <option value="ADA">ADA</option>
+                <option value="AVAX">AVAX</option>
+                <option value="TRX">TRX</option>
+              </select>
+              <select value={qrChain} onChange={(e) => setQrChain(e.target.value)} className="bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33]">
+                <option value="TRC20">TRC20</option>
+                <option value="ERC20">ERC20</option>
+                <option value="BEP20">BEP20</option>
+                <option value="SOL">SOLANA</option>
+                <option value="BTC">BITCOIN</option>
+                <option value="POLYGON">POLYGON</option>
+                <option value="AVAX">AVALANCHE</option>
+                <option value="ARB">ARBITRUM</option>
+                <option value="OP">OPTIMISM</option>
+                <option value="BASE">BASE</option>
+              </select>
+            </div>
             <input
               type="text"
-              value={qrLabel}
-              onChange={(e) => setQrLabel(e.target.value)}
-              placeholder="LABEL (USDT, USDC...)"
-              className="bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] w-[100px]"
+              value={qrAddress}
+              onChange={(e) => setQrAddress(e.target.value)}
+              placeholder="ADRESSE WALLET"
+              className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-white/30 font-mono"
             />
-            <button
-              type="button"
-              onClick={() => qrInputRef.current?.click()}
-              className="border border-[#33FF33]/30 text-[#33FF33]/60 px-2 py-1 text-[10px] hover:bg-[#33FF33]/10 hover:text-[#33FF33] transition-colors"
-            >
-              {qrFile ? qrFile.name.slice(0, 15) : "CHOISIR QR"}
-            </button>
-            {qrFile && (
+            <div className="flex gap-2 items-center">
               <button
-                onClick={handleQrUpload}
-                disabled={qrUploading}
-                className="border border-[#33FF33]/40 text-[#33FF33] px-2 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-50"
+                type="button"
+                onClick={() => qrInputRef.current?.click()}
+                className="border border-[#33FF33]/30 text-[#33FF33]/60 px-2 py-1 text-[10px] hover:bg-[#33FF33]/10 hover:text-[#33FF33] transition-colors"
               >
-                {qrUploading ? "..." : "UPLOAD"}
+                {qrFile ? qrFile.name.slice(0, 20) : "QR CODE IMAGE"}
               </button>
-            )}
+              {editingQr !== null ? (
+                <>
+                  <button
+                    onClick={saveEditQr}
+                    className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 tracking-wider"
+                  >SAUVER</button>
+                  <button
+                    onClick={() => { setEditingQr(null); setQrLabel("USDT"); setQrAddress(""); setQrChain("TRC20"); }}
+                    className="border border-white/20 text-white/40 px-3 py-1 text-[10px] hover:bg-white/5"
+                  >ANNULER</button>
+                </>
+              ) : (
+                <button
+                  onClick={handleQrUpload}
+                  disabled={qrUploading || !qrFile}
+                  className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-1 text-[10px] hover:bg-[#33FF33]/10 disabled:opacity-30 tracking-wider"
+                >
+                  {qrUploading ? "..." : "+ AJOUTER"}
+                </button>
+              )}
+            </div>
             <input ref={qrInputRef} type="file" accept="image/*" onChange={(e) => setQrFile(e.target.files?.[0] || null)} className="hidden" />
           </div>
         </div>
 
         {/* Payment Request */}
         <div>
-          <label className="text-[9px] text-white/40 block mb-2 tracking-wider">DEMANDE DE PAIEMENT</label>
+          <label className="text-[12px] text-white/40 block mb-2 tracking-wider">SEND</label>
           <form onSubmit={handlePayRequest} className="space-y-2">
-            <input
-              type="text"
-              value={payTo}
-              onChange={(e) => setPayTo(e.target.value)}
-              placeholder="CARD NUMBER DESTINATAIRE"
-              required
-              className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20 font-mono"
-            />
             <div className="flex gap-2">
+              <input
+                type="text"
+                value={payTo}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "").slice(0, 9);
+                  setPayTo(raw.replace(/(.{3})/g, "$1 ").trim());
+                }}
+                placeholder="000 000 000"
+                required
+                maxLength={11}
+                className="w-1/3 bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-white/30 font-mono tracking-[0.2em]"
+              />
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={payAmount}
                 onChange={(e) => setPayAmount(e.target.value)}
-                placeholder="MONTANT"
+                placeholder="AMOUNT"
                 required
-                className="flex-1 bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20"
+                className="w-1/2 bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-white/30"
               />
               <select
                 value={payCurrency}
                 onChange={(e) => setPayCurrency(e.target.value)}
-                className="bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33]"
+                className="w-1/5 bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33]"
               >
                 <option value="USDT">USDT</option>
                 <option value="USDC">USDC</option>
                 <option value="BTC">BTC</option>
                 <option value="ETH">ETH</option>
+                <option value="BNB">BNB</option>
+                <option value="SOL">SOL</option>
+                <option value="XRP">XRP</option>
+                <option value="DOGE">DOGE</option>
+                <option value="LTC">LTC</option>
+                <option value="MATIC">MATIC</option>
+                <option value="ADA">ADA</option>
+                <option value="AVAX">AVAX</option>
+                <option value="TRX">TRX</option>
               </select>
+              <button
+                type="submit"
+                disabled={paySending}
+                className="border border-[#DF8301]/40 text-[#DF8301] px-4 py-1 text-[10px] hover:bg-[#DF8301]/10 transition-colors disabled:opacity-50 tracking-wider shrink-0"
+              >
+                {paySending ? "..." : "SEND REQUEST"}
+              </button>
             </div>
-            <input
-              type="text"
-              value={payNote}
-              onChange={(e) => setPayNote(e.target.value)}
-              placeholder="NOTE (OPTIONNEL)"
-              className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-[#33FF33]/20"
-            />
-            <button
-              type="submit"
-              disabled={paySending}
-              className="border border-[#DF8301]/40 text-[#DF8301] px-3 py-1 text-[10px] hover:bg-[#DF8301]/10 transition-colors disabled:opacity-50 tracking-wider"
-            >
-              {paySending ? "..." : "ENVOYER DEMANDE"}
-            </button>
+            {payTo.replace(/\s/g, "").length === 9 && (
+              <>
+                {recipientName && (
+                  <p className="text-[10px] text-[#33FF33]/60">DESTINATAIRE: {recipientName}</p>
+                )}
+                {recipientWallets.length > 0 ? (
+                  <div className="space-y-2">
+                    <select
+                      value={payNote}
+                      onChange={(e) => setPayNote(e.target.value)}
+                      className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33]"
+                    >
+                      <option value="">-- WALLET ADDRESS --</option>
+                      {recipientWallets.map((qr, i) => (
+                        <option key={i} value={qr.address || ""}>
+                          {qr.label}{qr.chain ? ` (${qr.chain})` : ""} — {qr.address || "PAS D'ADRESSE"}
+                        </option>
+                      ))}
+                    </select>
+                    {payNote && (() => {
+                      const selected = recipientWallets.find((qr) => qr.address === payNote);
+                      return selected?.url ? (
+                        <div className="flex justify-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={selected.url}
+                            alt={selected.label}
+                            className="w-40 h-40 object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setQrPopup(selected.url || null)}
+                          />
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={payNote}
+                    onChange={(e) => setPayNote(e.target.value)}
+                    placeholder="WALLET ADDRESS"
+                    className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-[10px] focus:outline-none focus:border-[#33FF33] placeholder:text-white/30 font-mono"
+                  />
+                )}
+              </>
+            )}
           </form>
           {payMessage && <p className="text-[#33FF33] text-[10px] mt-2">{payMessage}</p>}
         </div>
@@ -423,7 +687,7 @@ function AccountPanel({ user, setUser }: {
           {/* Client (Nom) */}
           <div className="border border-[#33FF33]/15 p-4">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">CLIENT</label>
+              <label className="text-[12px] text-[#33FF33]/50 tracking-wider">CLIENT</label>
               <button onClick={() => startEdit("name")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
             </div>
             {editField === "name" ? (
@@ -439,7 +703,7 @@ function AccountPanel({ user, setUser }: {
 
           {/* Card Number */}
           <div className="border border-[#33FF33]/15 p-4">
-            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">CARD NUMBER</label>
+            <label className="text-[12px] text-[#33FF33]/50 block mb-1 tracking-wider">CARD NUMBER</label>
             <p className="text-[13px] text-white/80 font-mono tracking-[0.2em]">
               {(() => {
                 const raw = user.user_metadata?.card_number
@@ -452,7 +716,7 @@ function AccountPanel({ user, setUser }: {
           {/* Telegram */}
           <div className="border border-[#33FF33]/15 p-4">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">TELEGRAM</label>
+              <label className="text-[12px] text-[#33FF33]/50 tracking-wider">TELEGRAM</label>
               {user.user_metadata?.telegram_username ? (
                 <button
                   onClick={async () => {
@@ -504,7 +768,7 @@ function AccountPanel({ user, setUser }: {
           {/* Email */}
           <div className="border border-[#33FF33]/15 p-4">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">EMAIL</label>
+              <label className="text-[12px] text-[#33FF33]/50 tracking-wider">EMAIL</label>
               <button onClick={() => startEdit("email")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
             </div>
             {editField === "email" ? (
@@ -521,7 +785,7 @@ function AccountPanel({ user, setUser }: {
           {/* Password */}
           <div className="border border-[#33FF33]/15 p-4">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[9px] text-[#33FF33]/50 tracking-wider">MOT DE PASSE</label>
+              <label className="text-[12px] text-[#33FF33]/50 tracking-wider">MOT DE PASSE</label>
               <button onClick={() => startEdit("password")} className="text-[9px] text-[#DF8301] hover:text-[#DF8301]/80 tracking-wider">MODIFIER</button>
             </div>
             {editField === "password" ? (
@@ -542,13 +806,13 @@ function AccountPanel({ user, setUser }: {
         {/* Dates */}
         <div className="grid grid-cols-2 gap-3">
           <div className="border border-[#33FF33]/15 p-4">
-            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">MEMBRE DEPUIS</label>
+            <label className="text-[12px] text-[#33FF33]/50 block mb-1 tracking-wider">MEMBRE DEPUIS</label>
             <p className="text-[13px] text-white/80">
               {user.created_at ? new Date(user.created_at).toLocaleDateString("fr-FR", { year: "numeric", month: "long", day: "numeric" }) : "---"}
             </p>
           </div>
           <div className="border border-[#33FF33]/15 p-4">
-            <label className="text-[9px] text-[#33FF33]/50 block mb-1 tracking-wider">DERNIERE CONNEXION</label>
+            <label className="text-[12px] text-[#33FF33]/50 block mb-1 tracking-wider">DERNIERE CONNEXION</label>
             <p className="text-[13px] text-white/80">
               {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString("fr-FR") : "---"}
             </p>

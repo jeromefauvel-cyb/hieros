@@ -18,6 +18,29 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(users);
 }
 
+export async function POST(req: NextRequest) {
+  if (!isAdmin(req)) return unauthorized();
+  try {
+    const { email, password, display_name, card_number, telegram_username } = await req.json();
+    if (!email || !password) return NextResponse.json({ error: "Missing email or password" }, { status: 400 });
+
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        display_name: display_name || "",
+        card_number: card_number || "",
+        telegram_username: telegram_username || "",
+      },
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ id: data.user.id });
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
 export async function PUT(req: NextRequest) {
   if (!isAdmin(req)) return unauthorized();
   try {
@@ -28,6 +51,19 @@ export async function PUT(req: NextRequest) {
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ id: data.user.id, card_number: data.user.user_metadata?.card_number });
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!isAdmin(req)) return unauthorized();
+  try {
+    const { id } = await req.json();
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

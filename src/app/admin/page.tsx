@@ -85,12 +85,18 @@ export default function AdminPage() {
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaCopied, setMediaCopied] = useState<string | null>(null);
   const [adminUsers, setAdminUsers] = useState<{ id: string; email: string; display_name: string; card_number: string; telegram_username: string; created_at: string; last_sign_in_at: string }[]>([]);
-  const [editingUser, setEditingUser] = useState<{ id: string; card_number: string } | null>(null);
+  const [editingUser, setEditingUser] = useState<{ id: string; card_number: string; display_name: string; telegram_username: string } | null>(null);
   const [payments, setPayments] = useState<{ id: string; from_user_id: string; to_card_number: string; amount: number; currency: string; note: string; status: string; created_at: string }[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [userFilter, setUserFilter] = useState<"all" | "with-card" | "no-card" | "telegram">("all");
   const [userDateFrom, setUserDateFrom] = useState("");
   const [userDateTo, setUserDateTo] = useState("");
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserCard, setNewUserCard] = useState("");
+  const [newUserTelegram, setNewUserTelegram] = useState("");
   const [leftMenuRecords, setLeftMenuRecords] = useState<Record[]>([]);
   const [rightMenuRecords, setRightMenuRecords] = useState<Record[]>([]);
   const [menuEditSide, setMenuEditSide] = useState<"left" | "right">("left");
@@ -502,39 +508,79 @@ export default function AdminPage() {
                 {(userDateFrom || userDateTo) && (
                   <button onClick={() => { setUserDateFrom(""); setUserDateTo(""); }} className="text-[9px] text-white/30 hover:text-white/50">X</button>
                 )}
+                <button
+                  onClick={() => { setCreatingUser(true); setEditingUser(null); }}
+                  className="border border-[#33FF33]/40 text-[#33FF33] px-3 py-0.5 text-[9px] hover:bg-[#33FF33]/10 transition-colors"
+                >+ USER</button>
                 <span className="text-white/20 text-[9px] tracking-wider ml-auto">
                   {filteredUsers.length} / {adminUsers.length} UTILISATEUR{adminUsers.length !== 1 ? "S" : ""}
                 </span>
               </div>
 
-              {/* Edit card number form */}
-              {editingUser && (
+              {/* Create / Edit user form */}
+              {(creatingUser || editingUser) && (
                 <div className="border border-[#DF8301]/30 p-4 mb-4 bg-[#DF8301]/5">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-[#DF8301] text-xs tracking-wider">MODIFIER CARD NUMBER</h3>
+                    <h3 className="text-[#DF8301] text-xs tracking-wider">{creatingUser ? "CREER UTILISATEUR" : "MODIFIER UTILISATEUR"}</h3>
                     <div className="flex gap-2">
                       <button
                         onClick={async () => {
-                          await fetch("/api/admin/users", {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ id: editingUser.id, card_number: editingUser.card_number }),
-                          });
-                          setEditingUser(null);
-                          fetchUsers();
+                          if (creatingUser) {
+                            if (!newUserEmail || !newUserPassword) return;
+                            const res = await fetch("/api/admin/users", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ email: newUserEmail, password: newUserPassword, display_name: newUserName, card_number: newUserCard, telegram_username: newUserTelegram }),
+                            });
+                            if (res.ok) {
+                              setCreatingUser(false);
+                              setNewUserEmail(""); setNewUserPassword(""); setNewUserName(""); setNewUserCard(""); setNewUserTelegram("");
+                              fetchUsers();
+                            } else {
+                              const err = await res.json();
+                              alert(err.error || "ERREUR");
+                            }
+                          } else if (editingUser) {
+                            await fetch("/api/admin/users", {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: editingUser.id, card_number: editingUser.card_number, display_name: editingUser.display_name || "", telegram_username: editingUser.telegram_username || "" }),
+                            });
+                            setEditingUser(null);
+                            fetchUsers();
+                          }
                         }}
                         className="border border-[#33FF33]/40 text-[#33FF33] px-4 py-1 text-xs hover:bg-[#33FF33]/10"
                       >SAUVEGARDER</button>
-                      <button onClick={() => setEditingUser(null)} className="border border-white/20 text-white/50 px-4 py-1 text-xs hover:bg-white/5">ANNULER</button>
+                      <button onClick={() => { setCreatingUser(false); setEditingUser(null); }} className="border border-white/20 text-white/50 px-4 py-1 text-xs hover:bg-white/5">ANNULER</button>
                     </div>
                   </div>
-                  <input
-                    type="text"
-                    value={editingUser.card_number}
-                    onChange={(e) => setEditingUser({ ...editingUser, card_number: e.target.value })}
-                    placeholder="XXX XXX XXX"
-                    className="bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] w-[200px] font-mono tracking-[0.2em]"
-                  />
+                  <div className="grid grid-cols-5 gap-3">
+                    {creatingUser && (
+                      <>
+                        <div>
+                          <label className="text-[9px] text-[#33FF33]/50 block mb-1">EMAIL</label>
+                          <input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="EMAIL" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-[#33FF33]/50 block mb-1">MOT DE PASSE</label>
+                          <input type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="PASSWORD" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30" />
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <label className="text-[9px] text-[#33FF33]/50 block mb-1">NOM</label>
+                      <input type="text" value={creatingUser ? newUserName : editingUser?.display_name || ""} onChange={(e) => creatingUser ? setNewUserName(e.target.value) : setEditingUser(editingUser ? { ...editingUser, display_name: e.target.value } : null)} placeholder="NOM" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-[#33FF33]/50 block mb-1">CARD NUMBER</label>
+                      <input type="text" value={creatingUser ? newUserCard : editingUser?.card_number || ""} onChange={(e) => creatingUser ? setNewUserCard(e.target.value) : setEditingUser({ ...editingUser!, card_number: e.target.value })} placeholder="XXX XXX XXX" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30 font-mono tracking-[0.15em]" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-[#33FF33]/50 block mb-1">TELEGRAM</label>
+                      <input type="text" value={creatingUser ? newUserTelegram : editingUser?.telegram_username || ""} onChange={(e) => creatingUser ? setNewUserTelegram(e.target.value) : setEditingUser(editingUser ? { ...editingUser, telegram_username: e.target.value } : null)} placeholder="@USERNAME" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30" />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -558,12 +604,22 @@ export default function AdminPage() {
                       <td className="py-2 px-2 text-white/80 font-mono tracking-[0.15em]">{u.card_number ? u.card_number.replace(/\s/g, "").replace(/(.{3})/g, "$1 ").trim() : "---"}</td>
                       <td className="py-2 px-2 text-white/80">{u.telegram_username ? `@${u.telegram_username}` : "---"}</td>
                       <td className="py-2 px-2 text-white/50">{u.created_at ? new Date(u.created_at).toLocaleDateString("fr-FR") : "---"}</td>
-                      <td className="py-2 px-2 text-right">
+                      <td className="py-2 px-2 text-right flex gap-2 justify-end">
                         <button
-                          onClick={() => setEditingUser({ id: u.id, card_number: u.card_number })}
+                          onClick={() => { setEditingUser({ id: u.id, card_number: u.card_number, display_name: u.display_name, telegram_username: u.telegram_username }); setCreatingUser(false); }}
                           className="text-[#DF8301] hover:text-[#DF8301]/80"
                         >
-                          CARD
+                          EDIT
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`SUPPRIMER ${u.email} ?`)) return;
+                            await fetch("/api/admin/users", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: u.id }) });
+                            fetchUsers();
+                          }}
+                          className="text-red-500 hover:text-red-400"
+                        >
+                          DEL
                         </button>
                       </td>
                     </tr>
