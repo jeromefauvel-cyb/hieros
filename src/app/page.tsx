@@ -309,10 +309,18 @@ function FundingSection({ user, setUser }: { user: User; setUser: (u: User) => v
                       <span className="text-[11px] text-white/70 font-mono text-right max-w-[250px] break-all">{payNote}</span>
                     </div>
                     {selectedWallet && (
-                      <div className="flex gap-2 border-b border-[#33FF33]/10 pb-2">
-                        <span className="text-[10px] text-[#DF8301] border border-[#DF8301]/30 px-2 py-0.5 flex-1 text-center">{selectedWallet.label}</span>
-                        {selectedWallet.chain && <span className="text-[10px] text-white/50 border border-white/15 px-2 py-0.5 flex-1 text-center">{selectedWallet.chain}</span>}
-                      </div>
+                      <>
+                        <div className="flex gap-2 border-b border-[#33FF33]/10 pb-2">
+                          <span className="text-[10px] text-[#DF8301] border border-[#DF8301]/30 px-2 py-0.5 flex-1 text-center">{selectedWallet.label}</span>
+                          {selectedWallet.chain && <span className="text-[10px] text-white/50 border border-white/15 px-2 py-0.5 flex-1 text-center">{selectedWallet.chain}</span>}
+                        </div>
+                        {selectedWallet.url && (
+                          <div className="flex justify-center py-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={selectedWallet.url} alt={selectedWallet.label} className="w-32 h-32 object-contain" />
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 );

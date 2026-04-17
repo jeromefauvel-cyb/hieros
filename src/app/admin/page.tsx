@@ -97,6 +97,7 @@ export default function AdminPage() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserCard, setNewUserCard] = useState("");
   const [newUserTelegram, setNewUserTelegram] = useState("");
+  const [viewWallets, setViewWallets] = useState<{ userId: string; wallets: { label: string; url: string; address: string; chain: string }[] } | null>(null);
   const [leftMenuRecords, setLeftMenuRecords] = useState<Record[]>([]);
   const [rightMenuRecords, setRightMenuRecords] = useState<Record[]>([]);
   const [menuEditSide, setMenuEditSide] = useState<"left" | "right">("left");
@@ -574,13 +575,40 @@ export default function AdminPage() {
                     </div>
                     <div>
                       <label className="text-[9px] text-[#33FF33]/50 block mb-1">CARD NUMBER</label>
-                      <input type="text" value={creatingUser ? newUserCard : editingUser?.card_number || ""} onChange={(e) => creatingUser ? setNewUserCard(e.target.value) : setEditingUser({ ...editingUser!, card_number: e.target.value })} placeholder="XXX XXX XXX" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30 font-mono tracking-[0.15em]" />
+                      <input type="text" value={creatingUser ? newUserCard : editingUser?.card_number || ""} onChange={(e) => { const raw = e.target.value.replace(/\D/g, "").slice(0, 9); const formatted = raw.replace(/(.{3})/g, "$1 ").trim(); creatingUser ? setNewUserCard(formatted) : setEditingUser(editingUser ? { ...editingUser, card_number: formatted } : null); }} maxLength={11} placeholder="000 000 000" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30 font-mono tracking-[0.15em]" />
                     </div>
                     <div>
                       <label className="text-[9px] text-[#33FF33]/50 block mb-1">TELEGRAM</label>
                       <input type="text" value={creatingUser ? newUserTelegram : editingUser?.telegram_username || ""} onChange={(e) => creatingUser ? setNewUserTelegram(e.target.value) : setEditingUser(editingUser ? { ...editingUser, telegram_username: e.target.value } : null)} placeholder="@USERNAME" className="w-full bg-black border border-[#33FF33]/30 text-white px-2 py-1 text-xs focus:outline-none focus:border-[#33FF33] placeholder:text-white/30" />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Wallets viewer */}
+              {viewWallets && (
+                <div className="border border-[#33FF33]/15 p-4 mb-4 bg-[#33FF33]/[0.02]">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-[9px] text-[#33FF33]/50 tracking-wider">WALLETS ({viewWallets.wallets.length})</label>
+                    <button onClick={() => setViewWallets(null)} className="text-white/30 text-[9px] hover:text-white/50">FERMER</button>
+                  </div>
+                  {viewWallets.wallets.length === 0 ? (
+                    <p className="text-white/30 text-[10px]">AUCUN WALLET</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3">
+                      {viewWallets.wallets.map((w, i) => (
+                        <div key={i} className="border border-[#33FF33]/15 p-2">
+                          <div className="flex gap-1 mb-1">
+                            <span className="text-[9px] text-[#DF8301] border border-[#DF8301]/30 px-1.5 py-0.5 flex-1 text-center">{w.label}</span>
+                            {w.chain && <span className="text-[9px] text-white/40 border border-white/15 px-1.5 py-0.5 flex-1 text-center">{w.chain}</span>}
+                          </div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          {w.url && <img src={w.url} alt={w.label} className="w-full object-contain mb-1" />}
+                          {w.address && <p className="text-[8px] text-white/40 font-mono break-all">{w.address}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -605,6 +633,18 @@ export default function AdminPage() {
                       <td className="py-2 px-2 text-white/80">{u.telegram_username ? `@${u.telegram_username}` : "---"}</td>
                       <td className="py-2 px-2 text-white/50">{u.created_at ? new Date(u.created_at).toLocaleDateString("fr-FR") : "---"}</td>
                       <td className="py-2 px-2 text-right flex gap-2 justify-end">
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/account/lookup?card=${u.card_number.replace(/\s/g, "")}`);
+                            if (res.ok) {
+                              const data = await res.json();
+                              setViewWallets({ userId: u.id, wallets: data.qr_codes || [] });
+                            }
+                          }}
+                          className="text-[#33FF33]/50 hover:text-[#33FF33]"
+                        >
+                          QR
+                        </button>
                         <button
                           onClick={() => { setEditingUser({ id: u.id, card_number: u.card_number, display_name: u.display_name, telegram_username: u.telegram_username }); setCreatingUser(false); }}
                           className="text-[#DF8301] hover:text-[#DF8301]/80"
